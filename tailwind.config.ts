@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -24,11 +23,12 @@ export default {
           DEFAULT: "#E2E8F0",
         },
         primary: {
-          DEFAULT: "#86A789",
-          hover: "#738F76",
+          DEFAULT: "#0B6623",
+          hover: "#095219",
+          light: "#50C878",
         },
         surface: {
-          DEFAULT: "#F5F5F5",
+          DEFAULT: "#DFFFD6",
           secondary: "#FFFFFF",
         },
         text: {
@@ -36,8 +36,8 @@ export default {
           secondary: "#4A5568",
         },
         accent: {
-          DEFAULT: "#4A5568",
-          hover: "#2D3748",
+          DEFAULT: "#50C878",
+          hover: "#3FA661",
         },
       },
       keyframes: {
