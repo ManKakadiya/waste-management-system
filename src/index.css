@@ -32,7 +32,7 @@
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-[#E2E8F0];
   }
   body {
     @apply bg-surface text-text font-sans antialiased;
