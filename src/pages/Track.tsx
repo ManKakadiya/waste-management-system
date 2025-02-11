@@ -39,6 +39,27 @@ const Track = () => {
       date: "2024-02-12",
       status: "Under Review",
     },
+    {
+      id: "WMS-2024-005",
+      location: "Computer Lab",
+      description: "E-waste collection needed",
+      date: "2024-02-13",
+      status: "Pending",
+    },
+    {
+      id: "WMS-2024-006",
+      location: "Sports Ground",
+      description: "Plastic bottles after event",
+      date: "2024-02-13",
+      status: "In Progress",
+    },
+    {
+      id: "WMS-2024-007",
+      location: "Chemistry Lab",
+      description: "Hazardous waste disposal required",
+      date: "2024-02-14",
+      status: "Under Review",
+    },
   ];
 
   const getStatusColor = (status: string) => {
