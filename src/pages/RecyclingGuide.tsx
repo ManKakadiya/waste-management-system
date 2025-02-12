@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Recycle, Info, MapPin, AlertTriangle, Clock } from "lucide-react";
+import { Recycle, Info, MapPin, AlertTriangle, Clock, Check, X } from "lucide-react";
 
 const RecyclingGuide = () => {
   const recyclingCategories = [
@@ -38,6 +38,23 @@ const RecyclingGuide = () => {
     },
   ];
 
+  const dosAndDonts = {
+    dos: [
+      "Clean containers before recycling",
+      "Flatten cardboard boxes",
+      "Remove caps and lids from bottles",
+      "Sort items into correct categories",
+      "Check local recycling guidelines"
+    ],
+    donts: [
+      "Mix different types of materials",
+      "Recycle contaminated items",
+      "Include plastic bags with regular recycling",
+      "Leave food residue in containers",
+      "Recycle items with hazardous waste"
+    ]
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-surface to-surface-secondary p-4 sm:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
@@ -75,6 +92,51 @@ const RecyclingGuide = () => {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        <div className="mt-12">
+          <h2 className="text-2xl font-bold text-primary mb-6 text-center">
+            Recycling Do's and Don'ts
+          </h2>
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-green-600">
+                  <Check className="h-5 w-5" />
+                  Do's
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-3">
+                  {dosAndDonts.dos.map((item, index) => (
+                    <li key={index} className="flex items-start gap-2 text-gray-600">
+                      <Check className="h-4 w-4 mt-1 text-green-500 flex-shrink-0" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-red-600">
+                  <X className="h-5 w-5" />
+                  Don'ts
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-3">
+                  {dosAndDonts.donts.map((item, index) => (
+                    <li key={index} className="flex items-start gap-2 text-gray-600">
+                      <X className="h-4 w-4 mt-1 text-red-500 flex-shrink-0" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         <div className="mt-8">
