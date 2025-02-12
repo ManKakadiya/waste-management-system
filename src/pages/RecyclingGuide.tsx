@@ -1,6 +1,5 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Recycle, Info, MapPin, AlertTriangle } from "lucide-react";
+import { Recycle, Info, MapPin, AlertTriangle, Clock } from "lucide-react";
 
 const RecyclingGuide = () => {
   const recyclingCategories = [
