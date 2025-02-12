@@ -27,14 +27,14 @@ const RecyclingGuide = () => {
 
   const facilities = [
     {
-      name: "Main Recycling Center",
-      address: "123 Green Street",
+      name: "SMC Solid Waste Transfer",
+      address: "Adajan Surat",
       hours: "Mon-Sat: 8AM-6PM",
     },
     {
-      name: "Community Collection Point",
-      address: "456 Eco Avenue",
-      hours: "24/7 Access",
+      name: "Recotech E Waste Management",
+      address: "Sachin Surat",
+      hours: "Mon-Sat: 8AM-6PM",
     },
   ];
 
