@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Search, Filter, MapPin, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,8 @@ import { Card } from "@/components/ui/card";
 
 const Track = () => {
   const isMobile = useIsMobile();
+  const [searchQuery, setSearchQuery] = useState("");
+
   const complaints = [
     {
       id: "WMS-2024-001",
@@ -91,6 +94,13 @@ const Track = () => {
     }
   };
 
+  const filteredComplaints = complaints.filter((complaint) =>
+    complaint.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    complaint.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    complaint.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    complaint.id.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-surface to-surface-secondary p-4 sm:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -101,6 +111,8 @@ const Track = () => {
               className="w-full pl-10 pr-4 py-2"
               placeholder="Search reports..."
               type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           <Button variant="outline" className="w-full sm:w-auto">
@@ -110,7 +122,7 @@ const Track = () => {
         </div>
 
         <div className="grid gap-4">
-          {complaints.map((complaint) => (
+          {filteredComplaints.map((complaint) => (
             <Card
               key={complaint.id}
               className="p-4 hover:shadow-lg transition-shadow"
