@@ -1,13 +1,27 @@
 import { useState } from "react";
-import { Search, Filter, MapPin, Clock } from "lucide-react";
+import { Search, Filter, MapPin, Clock, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 const Track = () => {
-  const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [dateFilter, setDateFilter] = useState<string>("");
 
   const complaints = [
     {
@@ -94,12 +108,34 @@ const Track = () => {
     }
   };
 
-  const filteredComplaints = complaints.filter((complaint) =>
-    complaint.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    complaint.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    complaint.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    complaint.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredComplaints = complaints.filter((complaint) => {
+    const matchesSearch = 
+      complaint.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      complaint.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      complaint.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      complaint.id.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesStatus = !statusFilter || complaint.status.toLowerCase() === statusFilter.toLowerCase();
+    
+    const matchesDate = !dateFilter || (() => {
+      const complaintDate = new Date(complaint.date);
+      const today = new Date();
+      switch(dateFilter) {
+        case "today":
+          return complaintDate.toDateString() === today.toDateString();
+        case "week":
+          const weekAgo = new Date(today.setDate(today.getDate() - 7));
+          return complaintDate >= weekAgo;
+        case "month":
+          const monthAgo = new Date(today.setMonth(today.getMonth() - 1));
+          return complaintDate >= monthAgo;
+        default:
+          return true;
+      }
+    })();
+
+    return matchesSearch && matchesStatus && matchesDate;
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-surface to-surface-secondary p-4 sm:p-8">
@@ -115,10 +151,65 @@ const Track = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <Button variant="outline" className="w-full sm:w-auto">
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
-          </Button>
+          
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" className="w-full sm:w-auto">
+                <Filter className="h-4 w-4 mr-2" />
+                Filter
+              </Button>
+            </SheetTrigger>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle>Filter Reports</SheetTitle>
+              </SheetHeader>
+              <div className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Status</label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All</SelectItem>
+                      <SelectItem value="resolved">Resolved</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="in progress">In Progress</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Time Period</label>
+                  <Select value={dateFilter} onValueChange={setDateFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select time period" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All Time</SelectItem>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="week">Past Week</SelectItem>
+                      <SelectItem value="month">Past Month</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {(statusFilter || dateFilter) && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => {
+                      setStatusFilter("");
+                      setDateFilter("");
+                    }}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
 
         <div className="grid gap-4">

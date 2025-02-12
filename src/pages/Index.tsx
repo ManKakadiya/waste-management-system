@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { MapPin, Recycle, Clock, Users, GraduationCap } from "lucide-react";
+import { MapPin, Recycle, Clock, Users, GraduationCap, Leaf, Award, BarChart } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Index = () => {
@@ -32,6 +31,12 @@ const Index = () => {
     { name: "Daxil Jodhani", id: "23DCE048" },
     { name: "Man Kakadiya", id: "23DCE051" },
     { name: "Jaimin Khatri", id: "23DCE057" },
+  ];
+
+  const statistics = [
+    { title: "Active Reports", value: "150+", icon: BarChart },
+    { title: "Issues Resolved", value: "500+", icon: Award },
+    { title: "Environmental Impact", value: "30%", description: "Reduction in illegal dumping", icon: Leaf },
   ];
 
   return (
@@ -75,7 +80,32 @@ const Index = () => {
           ))}
         </div>
 
-        {/* About Us Section */}
+        <div className="space-y-8 py-16 border-t border-gray-200">
+          <header className="text-center space-y-4">
+            <h2 className="text-3xl font-bold text-text tracking-tight">
+              Making a Difference
+            </h2>
+            <p className="text-lg text-text-secondary max-w-2xl mx-auto">
+              Our platform has helped communities achieve significant improvements in waste management.
+            </p>
+          </header>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {statistics.map((stat) => (
+              <div key={stat.title} className="glass-card hover-lift rounded-2xl p-8 text-center">
+                <div className="inline-block p-3 bg-primary/10 rounded-xl mb-4">
+                  <stat.icon className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="text-3xl font-bold text-primary mb-2">{stat.value}</h3>
+                <p className="text-text-secondary">{stat.title}</p>
+                {stat.description && (
+                  <p className="text-sm text-text-secondary mt-2">{stat.description}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="space-y-12 py-16 border-t border-gray-200">
           <header className="text-center space-y-6">
             <div className="inline-block p-3 bg-primary/10 rounded-xl">
