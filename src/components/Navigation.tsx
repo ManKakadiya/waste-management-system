@@ -21,7 +21,7 @@ const Navigation = () => {
             to="/" 
             className="text-white font-semibold text-xl tracking-tight hover:text-white/90 transition-colors duration-200"
           >
-            WMS
+            Waste Management System
           </Link>
           
           <div className="flex space-x-1 sm:space-x-2">
