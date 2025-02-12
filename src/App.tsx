@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Report from "./pages/Report";
 import About from "./pages/About";
 import Track from "./pages/Track";
+import RecyclingGuide from "./pages/RecyclingGuide";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/report" element={<Report />} />
           <Route path="/about" element={<About />} />
           <Route path="/track" element={<Track />} />
+          <Route path="/guide" element={<RecyclingGuide />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
