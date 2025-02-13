@@ -1,4 +1,3 @@
-
 import { Link, useLocation } from "react-router-dom";
 import { Home, ClipboardList, Info, Recycle, BookOpen, LogIn, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,11 +43,17 @@ const Navigation = () => {
     <nav className="bg-primary/95 backdrop-blur-sm sticky top-0 z-50 border-b border-white/10 shadow-lg">
       <div className="max-w-6xl mx-auto px-2 sm:px-4">
         <div className="flex items-center justify-between h-14 sm:h-16">
-          <Link 
-            to="/" 
-            className="text-white font-semibold text-lg sm:text-xl tracking-tight hover:text-white/90 transition-colors duration-200 whitespace-nowrap overflow-hidden"
-          >
-            {isMobile ? 'WMS' : 'Waste Management System'}
+          
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2">
+            <img 
+              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSAFsirPMzSsyWkgK8P-qm9CoBy3M-eYkB8eQ&s" 
+              alt="Waste Management Logo" 
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full"
+            />
+            <span className="text-white font-semibold text-lg sm:text-xl tracking-tight hover:text-white/90 transition-colors duration-200">
+              {isMobile ? 'WMS' : 'Waste Management System'}
+            </span>
           </Link>
           
           <div className="flex items-center">
