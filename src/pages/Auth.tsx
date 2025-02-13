@@ -32,7 +32,7 @@ export default function Auth() {
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
           options: {
@@ -41,19 +41,38 @@ export default function Auth() {
             },
           },
         });
+        
         if (error) throw error;
-        toast({
-          title: "Account created!",
-          description: "Please check your email to verify your account.",
-        });
+        
+        if (data.user?.identities?.length === 0) {
+          toast({
+            variant: "destructive",
+            title: "Account already exists",
+            description: "Please sign in instead.",
+          });
+          setIsSignUp(false);
+        } else {
+          toast({
+            title: "Account created!",
+            description: "You can now sign in with your credentials.",
+          });
+          setIsSignUp(false);
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email: formData.email,
           password: formData.password,
         });
-        if (error) throw error;
+        
+        if (error) {
+          if (error.message === 'Invalid login credentials') {
+            throw new Error('Invalid email or password. Please try again.');
+          }
+          throw error;
+        }
+        
+        navigate('/');
       }
-      navigate('/');
     } catch (error: any) {
       toast({
         variant: "destructive",
