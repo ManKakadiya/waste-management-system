@@ -49,6 +49,19 @@ const Report = () => {
         <form onSubmit={handleSubmit} className="space-y-6 fade-in-up">
           <div className="glass-card rounded-2xl p-8 space-y-6">
             <div className="space-y-2">
+              <label className="text-sm font-medium text-text" htmlFor="title">
+                Title
+              </label>
+              <input
+                id="title"
+                type="text"
+                required
+                className="w-full px-4 py-2 rounded-xl border border-border bg-surface-secondary focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Enter report title"
+              />
+            </div>
+
+            <div className="space-y-2">
               <label className="text-sm font-medium text-text" htmlFor="location">
                 Location
               </label>
