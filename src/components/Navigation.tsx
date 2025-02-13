@@ -1,16 +1,33 @@
 
 import { Link, useLocation } from "react-router-dom";
-import { Home, ClipboardList, Info, Recycle, BookOpen, LogIn, LogOut } from "lucide-react";
+import { Home, ClipboardList, Info, Recycle, BookOpen, LogIn, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useQuery } from "@tanstack/react-query";
 
 const Navigation = () => {
   const location = useLocation();
   const { user } = useAuth();
   const isMobile = useIsMobile();
   
+  const { data: profile } = useQuery({
+    queryKey: ['profile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
   const links = [
     { path: "/", label: "Home", icon: Home },
     { path: "/report", label: "Report", icon: ClipboardList },
@@ -57,17 +74,25 @@ const Navigation = () => {
               })}
             </div>
             
-            <div className="ml-0.5 sm:ml-2">
+            <div className="ml-0.5 sm:ml-2 flex items-center gap-2">
               {user ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleSignOut}
-                  className="text-white/70 hover:text-white hover:bg-white/10"
-                >
-                  <LogOut className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Sign Out</span>
-                </Button>
+                <>
+                  <div className="hidden sm:flex items-center gap-2 px-2 py-1 rounded-lg bg-white/10">
+                    <User className="w-4 h-4 text-white/70" />
+                    <span className="text-sm text-white">
+                      {profile?.username || 'User'}
+                    </span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSignOut}
+                    className="text-white/70 hover:text-white hover:bg-white/10"
+                  >
+                    <LogOut className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Sign Out</span>
+                  </Button>
+                </>
               ) : (
                 <Link to="/auth">
                   <Button
