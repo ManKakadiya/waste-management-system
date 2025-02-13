@@ -29,6 +29,9 @@
     --radius: 0.75rem;
   }
 }
+.custom-popover-bg {
+  background-color: #008000; /* Replace with your desired color */
+}
 
 @layer base {
   * {
