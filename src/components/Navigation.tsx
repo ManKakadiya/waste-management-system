@@ -52,7 +52,6 @@ const Navigation = () => {
               className="w-10 h-10 sm:w-12 sm:h-12 rounded-full"
             />
             <span className="text-white font-semibold text-lg sm:text-xl tracking-tight hover:text-white/90 transition-colors duration-200">
-              {isMobile ? 'WMS' : 'Waste Management System'}
             </span>
           </Link>
           
