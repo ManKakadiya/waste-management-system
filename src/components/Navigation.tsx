@@ -1,6 +1,6 @@
 
 import { Link, useLocation } from "react-router-dom";
-import { Home, ClipboardList, Info, Recycle, BookOpen, LogIn, LogOut, User, Building, LayoutDashboard } from "lucide-react";
+import { Home, ClipboardList, Info, Recycle, BookOpen, LogIn, LogOut, User, Building, LayoutDashboard, MapPinned } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -115,14 +115,26 @@ const Navigation = () => {
                 <>
                   <div className="hidden sm:flex items-center gap-2 px-2 py-1 rounded-lg bg-white/10">
                     {isMunicipalOrNGO ? (
-                      <Building className="w-4 h-4 text-white/70" />
+                      <>
+                        <Building className="w-4 h-4 text-white/70" />
+                        <span className="text-sm text-white">
+                          {profile?.username || user.username || 'Organization'}
+                        </span>
+                        {profile?.area_code && (
+                          <div className="flex items-center text-white/80 text-xs bg-white/10 px-1.5 py-0.5 rounded">
+                            <MapPinned className="w-3 h-3 mr-1" />
+                            {profile.area_code}
+                          </div>
+                        )}
+                      </>
                     ) : (
-                      <User className="w-4 h-4 text-white/70" />
+                      <>
+                        <User className="w-4 h-4 text-white/70" />
+                        <span className="text-sm text-white">
+                          {profile?.username || user.username || 'User'}
+                        </span>
+                      </>
                     )}
-                    <span className="text-sm text-white">
-                      {profile?.username || user.username || 'User'}
-                      {profile?.area_code && ` (${profile.area_code})`}
-                    </span>
                   </div>
                   <Button
                     variant="ghost"

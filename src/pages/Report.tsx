@@ -1,14 +1,17 @@
 
 import { useState } from "react";
-import { Camera, MapPin, Send } from "lucide-react";
+import { Camera, MapPin, Send, MapPinned } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
 
 const Report = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("");
+  const [pincode, setPincode] = useState("");
   const [description, setDescription] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,6 +30,24 @@ const Report = () => {
       toast({
         title: "Location Required",
         description: "Please specify the location of the waste issue.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!pincode.trim()) {
+      toast({
+        title: "Pincode Required",
+        description: "Please provide the pincode for better tracking.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!/^\d{6}$/.test(pincode)) {
+      toast({
+        title: "Invalid Pincode",
+        description: "Please enter a valid 6-digit pincode.",
         variant: "destructive",
       });
       return;
@@ -54,6 +75,7 @@ const Report = () => {
     // Reset form
     setTitle("");
     setLocation("");
+    setPincode("");
     setDescription("");
     setImage(null);
     setLoading(false);
@@ -112,9 +134,38 @@ const Report = () => {
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 rounded-xl border border-border bg-surface-secondary focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="Enter location"
+                  placeholder="Enter location (street, landmark, etc.)"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-text" htmlFor="pincode">
+                Pincode
+              </label>
+              <div className="relative">
+                <MapPinned className="absolute left-3 top-3 w-5 h-5 text-text-secondary" />
+                <input
+                  id="pincode"
+                  type="text"
+                  required
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-border bg-surface-secondary focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Enter 6-digit pincode"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                />
+              </div>
+              {user?.role === 'municipal' || user?.role === 'ngo' ? (
+                <p className="text-xs text-text-secondary">
+                  This report will be assigned to your organization based on the pincode.
+                </p>
+              ) : (
+                <p className="text-xs text-text-secondary">
+                  The pincode helps assign your report to the responsible organization.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -42,9 +43,14 @@ export default function Auth() {
 
     try {
       if (isSignUp) {
-        // Validate area code for municipal/NGO accounts
+        // Validate pincode for municipal/NGO accounts
         if (formData.role !== 'user' && !formData.areaCode.trim()) {
-          throw new Error('Area code is required for municipal or NGO accounts');
+          throw new Error('Pincode is required for municipal or NGO accounts');
+        }
+
+        // Validate pincode format for municipal/NGO accounts
+        if (formData.role !== 'user' && !/^\d{6}$/.test(formData.areaCode)) {
+          throw new Error('Please enter a valid 6-digit pincode');
         }
 
         const { data, error } = await supabase.auth.signUp({
@@ -172,19 +178,21 @@ export default function Auth() {
               {(formData.role === 'municipal' || formData.role === 'ngo') && (
                 <div className="space-y-2">
                   <label htmlFor="areaCode" className="text-sm font-medium">
-                    Area Code / Zone
+                    Pincode
                   </label>
                   <Input
                     id="areaCode"
                     name="areaCode"
                     type="text"
                     required
-                    placeholder="North Zone, South Zone, etc."
+                    placeholder="Enter 6-digit pincode"
                     value={formData.areaCode}
                     onChange={handleInputChange}
+                    pattern="[0-9]{6}"
+                    maxLength={6}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Enter the zone or area your organization is responsible for.
+                    Enter the pincode of the area your organization is responsible for.
                   </p>
                 </div>
               )}
