@@ -7,9 +7,40 @@ const Report = () => {
   const { toast } = useToast();
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [title, setTitle] = useState("");
+  const [location, setLocation] = useState("");
+  const [description, setDescription] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!title.trim()) {
+      toast({
+        title: "Title Required",
+        description: "Please enter a title for your report.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!location.trim()) {
+      toast({
+        title: "Location Required",
+        description: "Please specify the location of the waste issue.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!description.trim()) {
+      toast({
+        title: "Description Required",
+        description: "Please provide a description of the waste issue.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setLoading(true);
     
     // Simulate API call
@@ -20,6 +51,11 @@ const Report = () => {
       description: "Your waste report has been successfully submitted.",
     });
     
+    // Reset form
+    setTitle("");
+    setLocation("");
+    setDescription("");
+    setImage(null);
     setLoading(false);
   };
 
@@ -56,6 +92,8 @@ const Report = () => {
                 id="title"
                 type="text"
                 required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
                 className="w-full px-4 py-2 rounded-xl border border-border bg-surface-secondary focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="Enter report title"
               />
@@ -71,6 +109,8 @@ const Report = () => {
                   id="location"
                   type="text"
                   required
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 rounded-xl border border-border bg-surface-secondary focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="Enter location"
                 />
@@ -85,6 +125,8 @@ const Report = () => {
                 id="description"
                 required
                 rows={4}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 className="w-full px-4 py-2 rounded-xl border border-border bg-surface-secondary focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="Describe the waste issue"
               />

@@ -13,6 +13,7 @@ import Track from "./pages/Track";
 import Auth from "./pages/Auth";
 import RecyclingGuide from "./pages/RecyclingGuide";
 import NotFound from "./pages/NotFound";
+import MunicipalDashboard from "./pages/MunicipalDashboard";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/track" element={<Track />} />
             <Route path="/guide" element={<RecyclingGuide />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/municipal-dashboard" element={<MunicipalDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthWrapper>
