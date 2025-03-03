@@ -18,20 +18,46 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        // Fetch user profile data from the profiles table
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('role, area_code, username')
-          .eq('id', session.user.id)
-          .single();
-        
-        // Combine auth user with profile data
-        setUser({
-          ...session.user,
-          role: profileData?.role || session.user.user_metadata?.role || 'user',
-          areaCode: profileData?.area_code || session.user.user_metadata?.areaCode,
-          username: profileData?.username || session.user.user_metadata?.username,
-        });
+        try {
+          // Fetch user profile data from the profiles table
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', session.user.id)
+            .single();
+          
+          // Get role and area code from user metadata since they're not in the profiles table
+          const userRole = session.user.user_metadata?.role || 'user';
+          const userAreaCode = session.user.user_metadata?.areaCode || '';
+          const username = profileData?.username || session.user.user_metadata?.username || '';
+          
+          // Set user with combined data
+          setUser({
+            ...session.user,
+            role: userRole,
+            areaCode: userAreaCode,
+            username: username,
+          });
+          
+          // If profile doesn't exist or is missing fields, create/update it
+          if (profileError || !profileData) {
+            await supabase
+              .from('profiles')
+              .upsert({
+                id: session.user.id,
+                username: username,
+              }, { onConflict: 'id' });
+          }
+        } catch (error) {
+          console.error("Error fetching user profile:", error);
+          // Still set the user with available data
+          setUser({
+            ...session.user,
+            role: session.user.user_metadata?.role || 'user',
+            areaCode: session.user.user_metadata?.areaCode || '',
+            username: session.user.user_metadata?.username || '',
+          });
+        }
       } else {
         setUser(null);
       }
@@ -44,20 +70,44 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     // Listen for changes on auth state (logged in, signed out, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        // Fetch user profile data from the profiles table
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('role, area_code, username')
-          .eq('id', session.user.id)
-          .single();
-        
-        // Combine auth user with profile data
-        setUser({
-          ...session.user,
-          role: profileData?.role || session.user.user_metadata?.role || 'user',
-          areaCode: profileData?.area_code || session.user.user_metadata?.areaCode,
-          username: profileData?.username || session.user.user_metadata?.username,
-        });
+        try {
+          // Fetch user profile data from the profiles table
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', session.user.id)
+            .single();
+          
+          // Get role and area code from user metadata since they're not in the profiles table
+          const userRole = session.user.user_metadata?.role || 'user';
+          const userAreaCode = session.user.user_metadata?.areaCode || '';
+          const username = profileData?.username || session.user.user_metadata?.username || '';
+          
+          // Set user with combined data
+          setUser({
+            ...session.user,
+            role: userRole,
+            areaCode: userAreaCode,
+            username: username,
+          });
+          
+          // Ensure profile exists
+          await supabase
+            .from('profiles')
+            .upsert({
+              id: session.user.id,
+              username: username,
+            }, { onConflict: 'id' });
+        } catch (error) {
+          console.error("Error updating user profile:", error);
+          // Still set the user with available data
+          setUser({
+            ...session.user,
+            role: session.user.user_metadata?.role || 'user',
+            areaCode: session.user.user_metadata?.areaCode || '',
+            username: session.user.user_metadata?.username || '',
+          });
+        }
       } else {
         setUser(null);
       }

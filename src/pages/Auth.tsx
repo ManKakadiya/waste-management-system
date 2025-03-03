@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -70,15 +69,14 @@ export default function Auth() {
           });
           setIsSignUp(false);
         } else {
-          // After successful signup, update the profiles table with the role
+          // After successful signup, update the profiles table with username only
+          // since the profiles table doesn't contain role and area_code fields
           if (data.user) {
             const { error: profileError } = await supabase
               .from('profiles')
               .upsert({
                 id: data.user.id,
                 username: formData.username,
-                role: formData.role,
-                area_code: formData.areaCode,
               });
               
             if (profileError) throw profileError;
