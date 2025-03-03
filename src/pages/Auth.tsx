@@ -75,14 +75,15 @@ export default function Auth() {
           });
           setIsSignUp(false);
         } else {
-          // After successful signup, update the profiles table with username only
-          // since the profiles table doesn't contain role and area_code fields
+          // After successful signup, update the profiles table with username, account_type and area_code
           if (data.user) {
             const { error: profileError } = await supabase
               .from('profiles')
               .upsert({
                 id: data.user.id,
                 username: formData.username,
+                account_type: formData.role,
+                area_code: formData.areaCode,
               });
               
             if (profileError) throw profileError;
@@ -91,6 +92,7 @@ export default function Auth() {
           toast({
             title: "Account created!",
             description: "You can now sign in with your credentials.",
+            variant: "success",
           });
           setIsSignUp(false);
         }
@@ -107,9 +109,15 @@ export default function Auth() {
           throw error;
         }
         
+        toast({
+          title: "Welcome back!",
+          description: "You have successfully signed in.",
+          variant: "success",
+        });
         navigate('/');
       }
     } catch (error: any) {
+      console.error("Auth error:", error);
       toast({
         variant: "destructive",
         title: "Error",

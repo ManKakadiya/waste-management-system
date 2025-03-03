@@ -22,13 +22,13 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
           // Fetch user profile data from the profiles table
           const { data: profileData, error: profileError } = await supabase
             .from('profiles')
-            .select('username')
+            .select('username, account_type, area_code')
             .eq('id', session.user.id)
             .single();
           
-          // Get role and area code from user metadata since they're not in the profiles table
-          const userRole = session.user.user_metadata?.role || 'user';
-          const userAreaCode = session.user.user_metadata?.areaCode || '';
+          // Get role and area code from user metadata as fallback
+          const userRole = profileData?.account_type || session.user.user_metadata?.role || 'user';
+          const userAreaCode = profileData?.area_code || session.user.user_metadata?.areaCode || '';
           const username = profileData?.username || session.user.user_metadata?.username || '';
           
           // Set user with combined data
@@ -46,6 +46,8 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
               .upsert({
                 id: session.user.id,
                 username: username,
+                account_type: userRole,
+                area_code: userAreaCode,
               }, { onConflict: 'id' });
           }
         } catch (error) {
@@ -74,13 +76,13 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
           // Fetch user profile data from the profiles table
           const { data: profileData } = await supabase
             .from('profiles')
-            .select('username')
+            .select('username, account_type, area_code')
             .eq('id', session.user.id)
             .single();
           
-          // Get role and area code from user metadata since they're not in the profiles table
-          const userRole = session.user.user_metadata?.role || 'user';
-          const userAreaCode = session.user.user_metadata?.areaCode || '';
+          // Get role and area code from user metadata as fallback
+          const userRole = profileData?.account_type || session.user.user_metadata?.role || 'user';
+          const userAreaCode = profileData?.area_code || session.user.user_metadata?.areaCode || '';
           const username = profileData?.username || session.user.user_metadata?.username || '';
           
           // Set user with combined data
@@ -91,12 +93,14 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
             username: username,
           });
           
-          // Ensure profile exists
+          // Ensure profile exists with updated data
           await supabase
             .from('profiles')
             .upsert({
               id: session.user.id,
               username: username,
+              account_type: userRole,
+              area_code: userAreaCode,
             }, { onConflict: 'id' });
         } catch (error) {
           console.error("Error updating user profile:", error);
@@ -118,6 +122,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
         toast({
           title: "Welcome back!",
           description: "You have successfully signed in.",
+          variant: "success",
         });
         navigate('/');
       }
@@ -125,6 +130,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
         toast({
           title: "Signed out",
           description: "You have been signed out successfully.",
+          variant: "info",
         });
         
         // Redirect to auth page unless already there
