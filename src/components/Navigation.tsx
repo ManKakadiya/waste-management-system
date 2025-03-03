@@ -1,5 +1,6 @@
+
 import { Link, useLocation } from "react-router-dom";
-import { Home, ClipboardList, Info, Recycle, BookOpen, LogIn, LogOut, User } from "lucide-react";
+import { Home, ClipboardList, Info, Recycle, BookOpen, LogIn, LogOut, User, Building, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +18,7 @@ const Navigation = () => {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('username')
+        .select('username, role, area_code')
         .eq('id', user.id)
         .single();
       
@@ -27,6 +28,8 @@ const Navigation = () => {
     enabled: !!user?.id,
   });
 
+  const isMunicipalOrNGO = user?.role === 'municipal' || user?.role === 'ngo';
+
   const links = [
     { path: "/", label: "Home", icon: Home },
     { path: "/report", label: "Report", icon: ClipboardList },
@@ -34,6 +37,15 @@ const Navigation = () => {
     { path: "/guide", label: "Guide", icon: BookOpen },
     { path: "/about", label: "About", icon: Info },
   ];
+
+  // Add municipal dashboard link only for municipal/NGO users
+  if (isMunicipalOrNGO) {
+    links.push({ 
+      path: "/municipal-dashboard", 
+      label: "Dashboard", 
+      icon: LayoutDashboard 
+    });
+  }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -83,9 +95,14 @@ const Navigation = () => {
               {user ? (
                 <>
                   <div className="hidden sm:flex items-center gap-2 px-2 py-1 rounded-lg bg-white/10">
-                    <User className="w-4 h-4 text-white/70" />
+                    {isMunicipalOrNGO ? (
+                      <Building className="w-4 h-4 text-white/70" />
+                    ) : (
+                      <User className="w-4 h-4 text-white/70" />
+                    )}
                     <span className="text-sm text-white">
-                      {profile?.username || 'User'}
+                      {profile?.username || user.username || 'User'}
+                      {profile?.area_code && ` (${profile.area_code})`}
                     </span>
                   </div>
                   <Button

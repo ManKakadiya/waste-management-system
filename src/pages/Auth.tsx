@@ -7,6 +7,8 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -17,6 +19,8 @@ export default function Auth() {
     email: '',
     password: '',
     username: '',
+    role: 'user', // Default role is user
+    areaCode: '', // For municipal/NGO accounts
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -26,18 +30,32 @@ export default function Auth() {
     }));
   };
 
+  const handleRoleChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      role: value,
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
       if (isSignUp) {
+        // Validate area code for municipal/NGO accounts
+        if (formData.role !== 'user' && !formData.areaCode.trim()) {
+          throw new Error('Area code is required for municipal or NGO accounts');
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
           options: {
             data: {
               username: formData.username,
+              role: formData.role,
+              areaCode: formData.areaCode,
             },
           },
         });
@@ -52,6 +70,20 @@ export default function Auth() {
           });
           setIsSignUp(false);
         } else {
+          // After successful signup, update the profiles table with the role
+          if (data.user) {
+            const { error: profileError } = await supabase
+              .from('profiles')
+              .upsert({
+                id: data.user.id,
+                username: formData.username,
+                role: formData.role,
+                area_code: formData.areaCode,
+              });
+              
+            if (profileError) throw profileError;
+          }
+          
           toast({
             title: "Account created!",
             description: "You can now sign in with your credentials.",
@@ -100,21 +132,65 @@ export default function Auth() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {isSignUp && (
-            <div className="space-y-2">
-              <label htmlFor="username" className="text-sm font-medium">
-                Username
-              </label>
-              <Input
-                id="username"
-                name="username"
-                type="text"
-                required={isSignUp}
-                placeholder="johndoe"
-                value={formData.username}
-                onChange={handleInputChange}
-                minLength={3}
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <label htmlFor="username" className="text-sm font-medium">
+                  Username
+                </label>
+                <Input
+                  id="username"
+                  name="username"
+                  type="text"
+                  required={isSignUp}
+                  placeholder="johndoe"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  minLength={3}
+                />
+              </div>
+              
+              <div className="space-y-3">
+                <label className="text-sm font-medium">Account Type</label>
+                <RadioGroup 
+                  value={formData.role} 
+                  onValueChange={handleRoleChange}
+                  className="flex flex-col space-y-1"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="user" id="user" />
+                    <Label htmlFor="user">Individual User</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="municipal" id="municipal" />
+                    <Label htmlFor="municipal">Municipal Corporation</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="ngo" id="ngo" />
+                    <Label htmlFor="ngo">NGO / Waste Management Organization</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+              
+              {(formData.role === 'municipal' || formData.role === 'ngo') && (
+                <div className="space-y-2">
+                  <label htmlFor="areaCode" className="text-sm font-medium">
+                    Area Code / Zone
+                  </label>
+                  <Input
+                    id="areaCode"
+                    name="areaCode"
+                    type="text"
+                    required
+                    placeholder="North Zone, South Zone, etc."
+                    value={formData.areaCode}
+                    onChange={handleInputChange}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter the zone or area your organization is responsible for.
+                  </p>
+                </div>
+              )}
+            </>
           )}
           
           <div className="space-y-2">

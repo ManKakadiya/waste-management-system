@@ -1,6 +1,6 @@
 
-import { useState } from "react";
-import { Search, MapPin, Clock, Upload, Check, AlertCircle, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, MapPin, Clock, Upload, Check, AlertCircle, Building } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@/lib/auth";
+import { useNavigate } from "react-router-dom";
 
 const MunicipalDashboard = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedComplaint, setSelectedComplaint] = useState<any>(null);
@@ -29,6 +33,23 @@ const MunicipalDashboard = () => {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("");
   const [afterPhoto, setAfterPhoto] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check if user is authorized (municipal or NGO)
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+    
+    if (user.role !== 'municipal' && user.role !== 'ngo') {
+      navigate('/');
+      toast({
+        title: "Access restricted",
+        description: "Only municipal or NGO accounts can access this dashboard.",
+        variant: "destructive"
+      });
+    }
+  }, [user, navigate, toast]);
 
   // This would be fetched from a database in a real implementation
   const complaints = [
@@ -147,18 +168,36 @@ const MunicipalDashboard = () => {
     }
   };
 
-  const filteredComplaints = complaints.filter((complaint) =>
-    complaint.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    complaint.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    complaint.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    complaint.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    complaint.area.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter complaints based on search query AND user's area code
+  const filteredComplaints = complaints.filter((complaint) => {
+    // First check if complaint matches the user's area (for municipal/NGO users)
+    const areaMatch = !user?.areaCode || complaint.area === user.areaCode;
+    
+    // Then check if it matches the search query
+    const searchMatch = 
+      complaint.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      complaint.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      complaint.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      complaint.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      complaint.area.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    return areaMatch && searchMatch;
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-surface to-surface-secondary p-4 sm:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        <h1 className="text-3xl font-bold mb-6">Municipal Waste Management Dashboard</h1>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Municipal Waste Management Dashboard</h1>
+            {user?.areaCode && (
+              <div className="flex items-center mt-2 text-sm font-medium text-primary">
+                <Building className="w-4 h-4 mr-1" />
+                Managing Area: {user.areaCode}
+              </div>
+            )}
+          </div>
+        </div>
         
         <div className="flex flex-col sm:flex-row gap-4 items-center mb-6">
           <div className="relative flex-1 w-full">
@@ -173,59 +212,70 @@ const MunicipalDashboard = () => {
           </div>
         </div>
 
-        <div className="grid gap-4">
-          {filteredComplaints.map((complaint) => (
-            <Card
-              key={complaint.id}
-              className="p-4 hover:shadow-lg transition-shadow"
-            >
-              <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-lg font-semibold">{complaint.title}</h3>
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium inline-flex items-center gap-1 ${getStatusColor(
-                        complaint.status
-                      )}`}
+        {filteredComplaints.length === 0 ? (
+          <Card className="p-8 text-center">
+            <h3 className="text-xl font-medium mb-2">No Complaints Found</h3>
+            <p className="text-gray-500">
+              {user?.areaCode 
+                ? `There are no complaints in your area (${user.areaCode}) matching your search criteria.`
+                : "No complaints match your search criteria."}
+            </p>
+          </Card>
+        ) : (
+          <div className="grid gap-4">
+            {filteredComplaints.map((complaint) => (
+              <Card
+                key={complaint.id}
+                className="p-4 hover:shadow-lg transition-shadow"
+              >
+                <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="text-lg font-semibold">{complaint.title}</h3>
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm font-medium inline-flex items-center gap-1 ${getStatusColor(
+                          complaint.status
+                        )}`}
+                      >
+                        {getStatusIcon(complaint.status)} {complaint.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center text-sm text-gray-500 mb-2">
+                      <MapPin className="h-4 w-4 mr-1" />
+                      {complaint.location} - <span className="font-medium ml-1">{complaint.area}</span>
+                    </div>
+                    <p className="text-gray-600 mb-3">{complaint.description}</p>
+                    <div className="flex items-center text-sm text-gray-500">
+                      <Clock className="h-4 w-4 mr-1" />
+                      Reported on: {new Date(complaint.date).toLocaleDateString()}
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-row md:flex-col gap-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setSelectedComplaint(complaint);
+                        setDialogOpen(true);
+                      }}
                     >
-                      {getStatusIcon(complaint.status)} {complaint.status}
-                    </span>
-                  </div>
-                  <div className="flex items-center text-sm text-gray-500 mb-2">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    {complaint.location} - <span className="font-medium ml-1">{complaint.area}</span>
-                  </div>
-                  <p className="text-gray-600 mb-3">{complaint.description}</p>
-                  <div className="flex items-center text-sm text-gray-500">
-                    <Clock className="h-4 w-4 mr-1" />
-                    Reported on: {new Date(complaint.date).toLocaleDateString()}
+                      View Details
+                    </Button>
+                    <Button 
+                      variant="default"
+                      onClick={() => {
+                        setSelectedComplaint(complaint);
+                        setStatusDialogOpen(true);
+                      }}
+                    >
+                      Update Status
+                    </Button>
                   </div>
                 </div>
-                
-                <div className="flex flex-row md:flex-col gap-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setSelectedComplaint(complaint);
-                      setDialogOpen(true);
-                    }}
-                  >
-                    View Details
-                  </Button>
-                  <Button 
-                    variant="default"
-                    onClick={() => {
-                      setSelectedComplaint(complaint);
-                      setStatusDialogOpen(true);
-                    }}
-                  >
-                    Update Status
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* View Details Dialog */}
