@@ -16,14 +16,33 @@ const Navigation = () => {
     queryKey: ['profile', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('username, role, area_code')
-        .eq('id', user.id)
-        .single();
       
-      if (error) throw error;
-      return data;
+      try {
+        // Only fetch username from profiles table since it's the only field available
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', user.id)
+          .single();
+        
+        if (error) throw error;
+        
+        // Return an object combining profile data with user metadata
+        return {
+          username: data?.username || user.username || 'User',
+          // These fields come from user metadata, not the profiles table
+          role: user.role || 'user',
+          area_code: user.areaCode || '',
+        };
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+        // Provide fallback values from user object if available
+        return {
+          username: user.username || 'User',
+          role: user.role || 'user',
+          area_code: user.areaCode || '',
+        };
+      }
     },
     enabled: !!user?.id,
   });
