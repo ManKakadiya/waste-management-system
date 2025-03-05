@@ -40,23 +40,71 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
         return true;
       }
       
-      // Profile doesn't exist, create it
-      const { error: upsertError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: userId,
-          username: username,
-          account_type: userRole,
-          area_code: userAreaCode,
-        });
+      // Try to create profile with retry on conflicts
+      let retryCount = 0;
+      const maxRetries = 3;
+      let success = false;
       
-      if (upsertError) {
-        console.error("Profile upsert error:", upsertError);
-        return false;
+      while (retryCount < maxRetries && !success) {
+        try {
+          // First check again if username exists to avoid conflicts
+          const { data: usernameCheck } = await supabase
+            .from('profiles')
+            .select('id')
+            .ilike('username', username)
+            .maybeSingle();
+            
+          if (usernameCheck && usernameCheck.id !== userId) {
+            // If username exists but belongs to someone else, append a random suffix
+            const randomSuffix = Math.floor(Math.random() * 1000);
+            const newUsername = `${username}${randomSuffix}`;
+            console.log(`Username ${username} already taken, trying ${newUsername}`);
+            
+            const { error: upsertError } = await supabase
+              .from('profiles')
+              .insert({
+                id: userId,
+                username: newUsername,
+                account_type: userRole,
+                area_code: userAreaCode,
+              });
+              
+            if (!upsertError) {
+              success = true;
+              console.log(`Profile created with modified username: ${newUsername}`);
+            } else {
+              console.error("Profile insert error:", upsertError);
+            }
+          } else {
+            // Username doesn't exist or belongs to this user, proceed with insert
+            const { error: upsertError } = await supabase
+              .from('profiles')
+              .insert({
+                id: userId,
+                username: username,
+                account_type: userRole,
+                area_code: userAreaCode,
+              });
+              
+            if (!upsertError) {
+              success = true;
+              console.log(`Profile created successfully for user: ${userId}`);
+            } else {
+              console.error("Profile insert error:", upsertError);
+            }
+          }
+        } catch (error) {
+          console.error(`Profile creation attempt ${retryCount + 1} failed:`, error);
+        }
+        
+        retryCount++;
+        if (!success && retryCount < maxRetries) {
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
       
-      console.log("Profile created successfully for user:", userId);
-      return true;
+      return success;
     } catch (error) {
       console.error("Error in profile upsert:", error);
       return false;
@@ -115,14 +163,17 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
               username: profileData?.username || userMetadata.username || '',
             });
             
-            // If profile doesn't exist, create it
+            // If profile doesn't exist, create it with delay to ensure auth is complete
             if (!profileData) {
               console.log("Profile not found, creating...");
-              await handleProfileUpsert(session.user.id, {
-                username: userMetadata.username || '',
-                role: userMetadata.role || 'user',
-                areaCode: userMetadata.areaCode || ''
-              });
+              // Add slight delay to ensure auth record is complete
+              setTimeout(async () => {
+                await handleProfileUpsert(session.user.id, {
+                  username: userMetadata.username || '',
+                  role: userMetadata.role || 'user',
+                  areaCode: userMetadata.areaCode || ''
+                });
+              }, 1000);
             }
           } catch (error) {
             console.error("Error handling user profile:", error);
@@ -169,13 +220,16 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
             });
             
             // Ensure profile exists with updated data
-            if (!profileData) {
+            if (!profileData && event === 'SIGNED_IN') {
               console.log("Creating profile after auth change");
-              await handleProfileUpsert(session.user.id, {
-                username: userMetadata.username || '',
-                role: userMetadata.role || 'user',
-                areaCode: userMetadata.areaCode || ''
-              });
+              // Add slight delay to ensure auth record is complete
+              setTimeout(async () => {
+                await handleProfileUpsert(session.user.id, {
+                  username: userMetadata.username || '',
+                  role: userMetadata.role || 'user',
+                  areaCode: userMetadata.areaCode || ''
+                });
+              }, 1000);
             }
           } catch (error) {
             console.error("Error updating user profile on auth change:", error);

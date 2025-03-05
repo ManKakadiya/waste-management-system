@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -168,53 +167,16 @@ export default function Auth() {
           throw new Error("Failed to create account. Please try again.");
         }
         
-        // After successful signup, update the profiles table with username, account_type and area_code
-        try {
-          console.log("Creating profile for user:", data.user.id);
-          
-          // Wait for a short delay to ensure auth record is fully created in the database
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert({
-              id: data.user.id,
-              username: formData.username,
-              account_type: formData.role,
-              area_code: formData.areaCode,
-            }, { 
-              onConflict: 'id'
-            });
-            
-          if (profileError) {
-            console.error("Profile update error:", profileError);
-            // Don't throw here, as user has been created already
-            toast({
-              variant: "warning",
-              title: "Account created",
-              description: "Your account was created, but there was an issue setting up your profile. Some features may be limited.",
-            });
-          } else {
-            console.log("Profile created successfully");
-            toast({
-              title: "Account created!",
-              description: "You can now sign in with your credentials.",
-              variant: "success",
-            });
-          }
-          
-          // Switch to sign in mode after successful signup
-          setIsSignUp(false);
-        } catch (profileError: any) {
-          console.error("Profile creation error:", profileError);
-          // Don't prevent login just because profile creation failed
-          toast({
-            variant: "warning",
-            title: "Account created",
-            description: "Your account was created, but there was an issue setting up your profile. Some features may be limited.",
-          });
-          setIsSignUp(false);
-        }
+        // After successful signup, notify the user - profile creation will happen in AuthWrapper
+        toast({
+          title: "Account created!",
+          description: "You can now sign in with your credentials.",
+          variant: "success",
+        });
+        
+        // Switch to sign in mode after successful signup
+        setIsSignUp(false);
+        setIsLoading(false);
       } else {
         // Sign in the user
         console.log("Attempting to sign in user:", formData.email);
@@ -248,7 +210,6 @@ export default function Auth() {
         title: "Error",
         description: error.message || "Authentication failed. Please try again.",
       });
-    } finally {
       setIsLoading(false);
     }
   };
