@@ -16,6 +16,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     // Check active sessions and sets the user
     const initializeAuth = async () => {
       try {
+        console.log("Initializing auth...");
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
@@ -25,6 +26,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
         }
         
         if (session?.user) {
+          console.log("Session found, user:", session.user.id);
           try {
             // Fetch user profile data from the profiles table
             const { data: profileData, error: profileError } = await supabase
@@ -42,6 +44,8 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
             const userAreaCode = profileData?.area_code || session.user.user_metadata?.areaCode || '';
             const username = profileData?.username || session.user.user_metadata?.username || '';
             
+            console.log("User details:", { username, role: userRole, areaCode: userAreaCode });
+            
             // Set user with combined data
             setUser({
               ...session.user,
@@ -52,6 +56,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
             
             // If profile doesn't exist or is missing fields, create/update it
             if (!profileData) {
+              console.log("Profile not found, creating...");
               const { error: upsertError } = await supabase
                 .from('profiles')
                 .upsert({
@@ -66,6 +71,8 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
               
               if (upsertError) {
                 console.error("Profile upsert error:", upsertError);
+              } else {
+                console.log("Profile created successfully");
               }
             }
           } catch (error) {
@@ -79,6 +86,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
             });
           }
         } else {
+          console.log("No active session found");
           setUser(null);
         }
       } catch (error) {
@@ -92,8 +100,10 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
 
     // Listen for changes on auth state (logged in, signed out, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event);
       try {
         if (session?.user) {
+          console.log("User authenticated:", session.user.id);
           try {
             // Fetch user profile data from the profiles table
             const { data: profileData, error: profileError } = await supabase
@@ -111,6 +121,8 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
             const userAreaCode = profileData?.area_code || session.user.user_metadata?.areaCode || '';
             const username = profileData?.username || session.user.user_metadata?.username || '';
             
+            console.log("Updated user details:", { username, role: userRole, areaCode: userAreaCode });
+            
             // Set user with combined data
             setUser({
               ...session.user,
@@ -121,6 +133,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
             
             // Ensure profile exists with updated data
             if (!profileData) {
+              console.log("Creating profile after auth change");
               const { error: upsertError } = await supabase
                 .from('profiles')
                 .upsert({
@@ -135,6 +148,8 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
               
               if (upsertError) {
                 console.error("Profile upsert error on auth change:", upsertError);
+              } else {
+                console.log("Profile created successfully after auth change");
               }
             }
           } catch (error) {
@@ -154,6 +169,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
         setLoading(false);
 
         if (event === 'SIGNED_IN') {
+          console.log("User signed in, redirecting to home");
           toast({
             title: "Welcome back!",
             description: "You have successfully signed in.",
@@ -162,6 +178,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
           navigate('/');
         }
         if (event === 'SIGNED_OUT') {
+          console.log("User signed out, redirecting to auth page");
           toast({
             title: "Signed out",
             description: "You have been signed out successfully.",
@@ -186,6 +203,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loading && location.pathname === '/municipal-dashboard') {
       if (!user) {
+        console.log("No user for municipal dashboard, redirecting to auth");
         navigate('/auth');
         toast({
           title: "Authentication required",
@@ -193,6 +211,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
           variant: "destructive"
         });
       } else if (user.role !== 'municipal' && user.role !== 'ngo') {
+        console.log("User role not authorized for municipal dashboard:", user.role);
         navigate('/');
         toast({
           title: "Access denied",

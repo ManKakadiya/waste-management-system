@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,12 @@ export default function Auth() {
     areaCode: '', // For municipal/NGO accounts
   });
 
+  // Reset loading state when switching between signup and signin
+  useEffect(() => {
+    setIsLoading(false);
+    setUsernameError('');
+  }, [isSignUp]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({
       ...prev,
@@ -46,6 +52,7 @@ export default function Auth() {
   // Check if username already exists
   const checkUsernameExists = async (username: string): Promise<boolean> => {
     try {
+      console.log(`Checking if username "${username}" exists...`);
       const { data, error } = await supabase
         .from('profiles')
         .select('username')
@@ -57,7 +64,9 @@ export default function Auth() {
         return false;
       }
       
-      return !!data; // Return true if data exists (username taken)
+      const exists = !!data;
+      console.log(`Username "${username}" exists: ${exists}`);
+      return exists;
     } catch (error) {
       console.error("Error in username check:", error);
       return false;
@@ -75,29 +84,41 @@ export default function Auth() {
       if (isSignUp) {
         // Validate username format
         if (!formData.username.trim()) {
+          setIsLoading(false);
           throw new Error('Username is required');
         }
         
         if (formData.username.length < 3) {
+          setIsLoading(false);
           throw new Error('Username must be at least 3 characters long');
         }
         
         // Check if username already exists
         const usernameExists = await checkUsernameExists(formData.username);
         if (usernameExists) {
+          setIsLoading(false);
           setUsernameError('This username is already taken. Please choose another one.');
           throw new Error('Username already taken');
         }
 
         // Validate pincode for municipal/NGO accounts
         if (formData.role !== 'user' && !formData.areaCode.trim()) {
+          setIsLoading(false);
           throw new Error('Pincode is required for municipal or NGO accounts');
         }
 
         // Validate pincode format for municipal/NGO accounts
         if (formData.role !== 'user' && !/^\d{6}$/.test(formData.areaCode)) {
+          setIsLoading(false);
           throw new Error('Please enter a valid 6-digit pincode');
         }
+
+        console.log("Attempting to sign up user with data:", {
+          email: formData.email,
+          username: formData.username,
+          role: formData.role,
+          areaCode: formData.areaCode
+        });
 
         // Sign up the user
         const { data, error } = await supabase.auth.signUp({
@@ -112,7 +133,12 @@ export default function Auth() {
           },
         });
         
-        if (error) throw error;
+        if (error) {
+          console.error("Signup error:", error);
+          throw error;
+        }
+        
+        console.log("Signup response:", data);
         
         if (data?.user?.identities?.length === 0) {
           toast({
@@ -123,53 +149,67 @@ export default function Auth() {
           setIsSignUp(false);
         } else if (data?.user) {
           // After successful signup, update the profiles table with username, account_type and area_code
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert({
-              id: data.user.id,
-              username: formData.username,
-              account_type: formData.role,
-              area_code: formData.areaCode,
-            }, { 
-              onConflict: 'id',
-              ignoreDuplicates: false
+          try {
+            console.log("Updating profile for user:", data.user.id);
+            const { error: profileError } = await supabase
+              .from('profiles')
+              .upsert({
+                id: data.user.id,
+                username: formData.username,
+                account_type: formData.role,
+                area_code: formData.areaCode,
+              }, { 
+                onConflict: 'id',
+                ignoreDuplicates: false
+              });
+              
+            if (profileError) {
+              console.error("Profile update error:", profileError);
+              if (profileError.message.includes("profiles_username_key")) {
+                setUsernameError('This username is already taken. Please choose another one.');
+                console.log("Attempting to delete auth user due to duplicate username");
+                // Don't try to delete the user, as this might not be possible with the current permissions
+                throw new Error('Username already taken');
+              } else {
+                throw new Error('Error creating profile: ' + profileError.message);
+              }
+            }
+            
+            console.log("Profile updated successfully");
+            toast({
+              title: "Account created!",
+              description: "You can now sign in with your credentials.",
+              variant: "success",
             });
             
-          if (profileError) {
-            console.error("Profile update error:", profileError);
-            if (profileError.message.includes("profiles_username_key")) {
-              setUsernameError('This username is already taken. Please choose another one.');
-              // Try to delete the newly created auth user
-              await supabase.auth.admin.deleteUser(data.user.id);
-              throw new Error('Username already taken');
-            } else {
-              throw new Error('Error creating profile: ' + profileError.message);
-            }
+            // Switch to sign in mode after successful signup
+            setIsSignUp(false);
+          } catch (profileError: any) {
+            console.error("Profile creation error:", profileError);
+            toast({
+              variant: "destructive",
+              title: "Error creating profile",
+              description: profileError.message || "Failed to create user profile. Please try again.",
+            });
           }
-          
-          toast({
-            title: "Account created!",
-            description: "You can now sign in with your credentials.",
-            variant: "success",
-          });
-          
-          // Switch to sign in mode after successful signup
-          setIsSignUp(false);
         }
       } else {
         // Sign in the user
+        console.log("Attempting to sign in user:", formData.email);
         const { data, error } = await supabase.auth.signInWithPassword({
           email: formData.email,
           password: formData.password,
         });
         
         if (error) {
+          console.error("Signin error:", error);
           if (error.message === 'Invalid login credentials') {
             throw new Error('Invalid email or password. Please try again.');
           }
           throw error;
         }
         
+        console.log("Signin successful:", data);
         if (data?.user) {
           toast({
             title: "Welcome back!",
@@ -222,6 +262,7 @@ export default function Auth() {
                   onChange={handleInputChange}
                   minLength={3}
                   className={usernameError ? "border-red-500" : ""}
+                  disabled={isLoading}
                 />
                 {usernameError && (
                   <p className="text-xs text-red-500 mt-1">{usernameError}</p>
@@ -234,6 +275,7 @@ export default function Auth() {
                   value={formData.role} 
                   onValueChange={handleRoleChange}
                   className="flex flex-col space-y-1"
+                  disabled={isLoading}
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="user" id="user" />
@@ -265,6 +307,7 @@ export default function Auth() {
                     onChange={handleInputChange}
                     pattern="[0-9]{6}"
                     maxLength={6}
+                    disabled={isLoading}
                   />
                   <p className="text-xs text-muted-foreground">
                     Enter the pincode of the area your organization is responsible for.
@@ -330,6 +373,13 @@ export default function Auth() {
             onClick={() => {
               setIsSignUp(!isSignUp);
               setUsernameError('');
+              setFormData({
+                email: '',
+                password: '',
+                username: '',
+                role: 'user',
+                areaCode: '',
+              });
             }}
             disabled={isLoading}
           >
