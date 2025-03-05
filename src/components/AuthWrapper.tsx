@@ -59,7 +59,10 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
                   username: username,
                   account_type: userRole,
                   area_code: userAreaCode,
-                }, { onConflict: 'id' });
+                }, { 
+                  onConflict: 'id',
+                  ignoreDuplicates: false 
+                });
               
               if (upsertError) {
                 console.error("Profile upsert error:", upsertError);
@@ -117,17 +120,22 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
             });
             
             // Ensure profile exists with updated data
-            const { error: upsertError } = await supabase
-              .from('profiles')
-              .upsert({
-                id: session.user.id,
-                username: username,
-                account_type: userRole,
-                area_code: userAreaCode,
-              }, { onConflict: 'id' });
-            
-            if (upsertError) {
-              console.error("Profile upsert error on auth change:", upsertError);
+            if (!profileData) {
+              const { error: upsertError } = await supabase
+                .from('profiles')
+                .upsert({
+                  id: session.user.id,
+                  username: username,
+                  account_type: userRole,
+                  area_code: userAreaCode,
+                }, { 
+                  onConflict: 'id',
+                  ignoreDuplicates: false 
+                });
+              
+              if (upsertError) {
+                console.error("Profile upsert error on auth change:", upsertError);
+              }
             }
           } catch (error) {
             console.error("Error updating user profile on auth change:", error);

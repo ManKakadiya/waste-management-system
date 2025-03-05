@@ -15,6 +15,7 @@ export default function Auth() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [usernameError, setUsernameError] = useState('');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -28,6 +29,11 @@ export default function Auth() {
       ...prev,
       [e.target.name]: e.target.value,
     }));
+    
+    // Clear username error when user types in the username field
+    if (e.target.name === 'username') {
+      setUsernameError('');
+    }
   };
 
   const handleRoleChange = (value: string) => {
@@ -35,6 +41,27 @@ export default function Auth() {
       ...prev,
       role: value,
     }));
+  };
+
+  // Check if username already exists
+  const checkUsernameExists = async (username: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', username)
+        .maybeSingle();
+      
+      if (error) {
+        console.error("Error checking username:", error);
+        return false;
+      }
+      
+      return !!data; // Return true if data exists (username taken)
+    } catch (error) {
+      console.error("Error in username check:", error);
+      return false;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,6 +73,22 @@ export default function Auth() {
 
     try {
       if (isSignUp) {
+        // Validate username format
+        if (!formData.username.trim()) {
+          throw new Error('Username is required');
+        }
+        
+        if (formData.username.length < 3) {
+          throw new Error('Username must be at least 3 characters long');
+        }
+        
+        // Check if username already exists
+        const usernameExists = await checkUsernameExists(formData.username);
+        if (usernameExists) {
+          setUsernameError('This username is already taken. Please choose another one.');
+          throw new Error('Username already taken');
+        }
+
         // Validate pincode for municipal/NGO accounts
         if (formData.role !== 'user' && !formData.areaCode.trim()) {
           throw new Error('Pincode is required for municipal or NGO accounts');
@@ -87,11 +130,21 @@ export default function Auth() {
               username: formData.username,
               account_type: formData.role,
               area_code: formData.areaCode,
+            }, { 
+              onConflict: 'id',
+              ignoreDuplicates: false
             });
             
           if (profileError) {
             console.error("Profile update error:", profileError);
-            // Continue with the signup process even if profile update fails
+            if (profileError.message.includes("profiles_username_key")) {
+              setUsernameError('This username is already taken. Please choose another one.');
+              // Try to delete the newly created auth user
+              await supabase.auth.admin.deleteUser(data.user.id);
+              throw new Error('Username already taken');
+            } else {
+              throw new Error('Error creating profile: ' + profileError.message);
+            }
           }
           
           toast({
@@ -168,7 +221,11 @@ export default function Auth() {
                   value={formData.username}
                   onChange={handleInputChange}
                   minLength={3}
+                  className={usernameError ? "border-red-500" : ""}
                 />
+                {usernameError && (
+                  <p className="text-xs text-red-500 mt-1">{usernameError}</p>
+                )}
               </div>
               
               <div className="space-y-3">
@@ -270,7 +327,10 @@ export default function Auth() {
           <Button
             variant="link"
             className="text-sm"
-            onClick={() => setIsSignUp(!isSignUp)}
+            onClick={() => {
+              setIsSignUp(!isSignUp);
+              setUsernameError('');
+            }}
             disabled={isLoading}
           >
             {isSignUp
