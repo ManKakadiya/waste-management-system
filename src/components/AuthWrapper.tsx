@@ -12,6 +12,79 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { toast } = useToast();
 
+  // Safely create or update profile
+  const handleProfileUpsert = async (userId: string, userData: any) => {
+    try {
+      console.log("Upserting profile for:", userId);
+      
+      // Get role and area code from user metadata as fallback
+      const userRole = userData.role || 'user';
+      const userAreaCode = userData.areaCode || '';
+      const username = userData.username || '';
+      
+      // Check if profile exists first
+      const { data: existingProfile, error: profileCheckError } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .eq('id', userId)
+        .maybeSingle();
+        
+      if (profileCheckError) {
+        console.error("Error checking profile existence:", profileCheckError);
+        return false;
+      }
+      
+      // If profile exists, just return success
+      if (existingProfile) {
+        console.log("Profile already exists for user:", userId);
+        return true;
+      }
+      
+      // Profile doesn't exist, create it
+      const { error: upsertError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: userId,
+          username: username,
+          account_type: userRole,
+          area_code: userAreaCode,
+        });
+      
+      if (upsertError) {
+        console.error("Profile upsert error:", upsertError);
+        return false;
+      }
+      
+      console.log("Profile created successfully for user:", userId);
+      return true;
+    } catch (error) {
+      console.error("Error in profile upsert:", error);
+      return false;
+    }
+  };
+
+  // Fetch user profile data
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      console.log("Fetching profile for user:", userId);
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('username, account_type, area_code')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      if (profileError) {
+        console.error("Profile fetch error:", profileError);
+        return null;
+      }
+      
+      return profileData;
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     // Check active sessions and sets the user
     const initializeAuth = async () => {
@@ -28,55 +101,31 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           console.log("Session found, user:", session.user.id);
           try {
-            // Fetch user profile data from the profiles table
-            const { data: profileData, error: profileError } = await supabase
-              .from('profiles')
-              .select('username, account_type, area_code')
-              .eq('id', session.user.id)
-              .maybeSingle();
+            // Fetch user profile data
+            const profileData = await fetchUserProfile(session.user.id);
             
-            if (profileError) {
-              console.error("Profile fetch error:", profileError);
-            }
-            
-            // Get role and area code from user metadata as fallback
-            const userRole = profileData?.account_type || session.user.user_metadata?.role || 'user';
-            const userAreaCode = profileData?.area_code || session.user.user_metadata?.areaCode || '';
-            const username = profileData?.username || session.user.user_metadata?.username || '';
-            
-            console.log("User details:", { username, role: userRole, areaCode: userAreaCode });
+            // Get metadata from user
+            const userMetadata = session.user.user_metadata || {};
             
             // Set user with combined data
             setUser({
               ...session.user,
-              role: userRole,
-              areaCode: userAreaCode,
-              username: username,
+              role: profileData?.account_type || userMetadata.role || 'user',
+              areaCode: profileData?.area_code || userMetadata.areaCode || '',
+              username: profileData?.username || userMetadata.username || '',
             });
             
-            // If profile doesn't exist or is missing fields, create/update it
+            // If profile doesn't exist, create it
             if (!profileData) {
               console.log("Profile not found, creating...");
-              const { error: upsertError } = await supabase
-                .from('profiles')
-                .upsert({
-                  id: session.user.id,
-                  username: username,
-                  account_type: userRole,
-                  area_code: userAreaCode,
-                }, { 
-                  onConflict: 'id',
-                  ignoreDuplicates: false 
-                });
-              
-              if (upsertError) {
-                console.error("Profile upsert error:", upsertError);
-              } else {
-                console.log("Profile created successfully");
-              }
+              await handleProfileUpsert(session.user.id, {
+                username: userMetadata.username || '',
+                role: userMetadata.role || 'user',
+                areaCode: userMetadata.areaCode || ''
+              });
             }
           } catch (error) {
-            console.error("Error fetching user profile:", error);
+            console.error("Error handling user profile:", error);
             // Still set the user with available data
             setUser({
               ...session.user,
@@ -105,52 +154,28 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           console.log("User authenticated:", session.user.id);
           try {
-            // Fetch user profile data from the profiles table
-            const { data: profileData, error: profileError } = await supabase
-              .from('profiles')
-              .select('username, account_type, area_code')
-              .eq('id', session.user.id)
-              .maybeSingle();
+            // Fetch user profile data
+            const profileData = await fetchUserProfile(session.user.id);
             
-            if (profileError) {
-              console.error("Profile fetch error on auth change:", profileError);
-            }
-            
-            // Get role and area code from user metadata as fallback
-            const userRole = profileData?.account_type || session.user.user_metadata?.role || 'user';
-            const userAreaCode = profileData?.area_code || session.user.user_metadata?.areaCode || '';
-            const username = profileData?.username || session.user.user_metadata?.username || '';
-            
-            console.log("Updated user details:", { username, role: userRole, areaCode: userAreaCode });
+            // Get metadata from user
+            const userMetadata = session.user.user_metadata || {};
             
             // Set user with combined data
             setUser({
               ...session.user,
-              role: userRole,
-              areaCode: userAreaCode,
-              username: username,
+              role: profileData?.account_type || userMetadata.role || 'user',
+              areaCode: profileData?.area_code || userMetadata.areaCode || '',
+              username: profileData?.username || userMetadata.username || '',
             });
             
             // Ensure profile exists with updated data
             if (!profileData) {
               console.log("Creating profile after auth change");
-              const { error: upsertError } = await supabase
-                .from('profiles')
-                .upsert({
-                  id: session.user.id,
-                  username: username,
-                  account_type: userRole,
-                  area_code: userAreaCode,
-                }, { 
-                  onConflict: 'id',
-                  ignoreDuplicates: false 
-                });
-              
-              if (upsertError) {
-                console.error("Profile upsert error on auth change:", upsertError);
-              } else {
-                console.log("Profile created successfully after auth change");
-              }
+              await handleProfileUpsert(session.user.id, {
+                username: userMetadata.username || '',
+                role: userMetadata.role || 'user',
+                areaCode: userMetadata.areaCode || ''
+              });
             }
           } catch (error) {
             console.error("Error updating user profile on auth change:", error);

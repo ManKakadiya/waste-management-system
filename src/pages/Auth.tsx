@@ -16,6 +16,7 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [usernameError, setUsernameError] = useState('');
+  const [checkingUsername, setCheckingUsername] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -52,11 +53,14 @@ export default function Auth() {
   // Check if username already exists
   const checkUsernameExists = async (username: string): Promise<boolean> => {
     try {
+      setCheckingUsername(true);
       console.log(`Checking if username "${username}" exists...`);
+      
+      // Check with a case-insensitive search to prevent similar usernames
       const { data, error } = await supabase
         .from('profiles')
         .select('username')
-        .eq('username', username)
+        .ilike('username', username)
         .maybeSingle();
       
       if (error) {
@@ -70,13 +74,15 @@ export default function Auth() {
     } catch (error) {
       console.error("Error in username check:", error);
       return false;
+    } finally {
+      setCheckingUsername(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (isLoading) return; // Prevent multiple submissions
+    if (isLoading || checkingUsername) return; // Prevent multiple submissions
     
     setIsLoading(true);
 
@@ -93,7 +99,14 @@ export default function Auth() {
           throw new Error('Username must be at least 3 characters long');
         }
         
-        // Check if username already exists
+        // Additional validation to prevent special characters that might cause issues
+        const usernameRegex = /^[a-zA-Z0-9_]+$/;
+        if (!usernameRegex.test(formData.username)) {
+          setIsLoading(false);
+          throw new Error('Username can only contain letters, numbers, and underscores');
+        }
+        
+        // Check if username already exists - critical step
         const usernameExists = await checkUsernameExists(formData.username);
         if (usernameExists) {
           setIsLoading(false);
@@ -147,51 +160,60 @@ export default function Auth() {
             description: "Please sign in instead.",
           });
           setIsSignUp(false);
-        } else if (data?.user) {
-          // After successful signup, update the profiles table with username, account_type and area_code
-          try {
-            console.log("Updating profile for user:", data.user.id);
-            const { error: profileError } = await supabase
-              .from('profiles')
-              .upsert({
-                id: data.user.id,
-                username: formData.username,
-                account_type: formData.role,
-                area_code: formData.areaCode,
-              }, { 
-                onConflict: 'id',
-                ignoreDuplicates: false
-              });
-              
-            if (profileError) {
-              console.error("Profile update error:", profileError);
-              if (profileError.message.includes("profiles_username_key")) {
-                setUsernameError('This username is already taken. Please choose another one.');
-                console.log("Attempting to delete auth user due to duplicate username");
-                // Don't try to delete the user, as this might not be possible with the current permissions
-                throw new Error('Username already taken');
-              } else {
-                throw new Error('Error creating profile: ' + profileError.message);
-              }
-            }
+          setIsLoading(false);
+          return;
+        } 
+        
+        if (!data?.user) {
+          throw new Error("Failed to create account. Please try again.");
+        }
+        
+        // After successful signup, update the profiles table with username, account_type and area_code
+        try {
+          console.log("Creating profile for user:", data.user.id);
+          
+          // Wait for a short delay to ensure auth record is fully created in the database
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .upsert({
+              id: data.user.id,
+              username: formData.username,
+              account_type: formData.role,
+              area_code: formData.areaCode,
+            }, { 
+              onConflict: 'id'
+            });
             
-            console.log("Profile updated successfully");
+          if (profileError) {
+            console.error("Profile update error:", profileError);
+            // Don't throw here, as user has been created already
+            toast({
+              variant: "warning",
+              title: "Account created",
+              description: "Your account was created, but there was an issue setting up your profile. Some features may be limited.",
+            });
+          } else {
+            console.log("Profile created successfully");
             toast({
               title: "Account created!",
               description: "You can now sign in with your credentials.",
               variant: "success",
             });
-            
-            // Switch to sign in mode after successful signup
-            setIsSignUp(false);
-          } catch (profileError: any) {
-            console.error("Profile creation error:", profileError);
-            toast({
-              variant: "destructive",
-              title: "Error creating profile",
-              description: profileError.message || "Failed to create user profile. Please try again.",
-            });
           }
+          
+          // Switch to sign in mode after successful signup
+          setIsSignUp(false);
+        } catch (profileError: any) {
+          console.error("Profile creation error:", profileError);
+          // Don't prevent login just because profile creation failed
+          toast({
+            variant: "warning",
+            title: "Account created",
+            description: "Your account was created, but there was an issue setting up your profile. Some features may be limited.",
+          });
+          setIsSignUp(false);
         }
       } else {
         // Sign in the user
@@ -262,10 +284,13 @@ export default function Auth() {
                   onChange={handleInputChange}
                   minLength={3}
                   className={usernameError ? "border-red-500" : ""}
-                  disabled={isLoading}
+                  disabled={isLoading || checkingUsername}
                 />
                 {usernameError && (
                   <p className="text-xs text-red-500 mt-1">{usernameError}</p>
+                )}
+                {!usernameError && (
+                  <p className="text-xs text-muted-foreground mt-1">Only letters, numbers, and underscores allowed.</p>
                 )}
               </div>
               
@@ -353,12 +378,17 @@ export default function Auth() {
           <Button
             type="submit"
             className="w-full"
-            disabled={isLoading}
+            disabled={isLoading || checkingUsername}
           >
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 {isSignUp ? 'Creating account...' : 'Signing in...'}
+              </>
+            ) : checkingUsername ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Checking username...
               </>
             ) : (
               <>{isSignUp ? 'Sign Up' : 'Sign In'}</>
@@ -381,7 +411,7 @@ export default function Auth() {
                 areaCode: '',
               });
             }}
-            disabled={isLoading}
+            disabled={isLoading || checkingUsername}
           >
             {isSignUp
               ? 'Already have an account? Sign In'
