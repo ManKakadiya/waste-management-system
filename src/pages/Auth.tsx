@@ -39,6 +39,9 @@ export default function Auth() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (isLoading) return; // Prevent multiple submissions
+    
     setIsLoading(true);
 
     try {
@@ -53,6 +56,7 @@ export default function Auth() {
           throw new Error('Please enter a valid 6-digit pincode');
         }
 
+        // Sign up the user
         const { data, error } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
@@ -67,26 +71,27 @@ export default function Auth() {
         
         if (error) throw error;
         
-        if (data.user?.identities?.length === 0) {
+        if (data?.user?.identities?.length === 0) {
           toast({
             variant: "destructive",
             title: "Account already exists",
             description: "Please sign in instead.",
           });
           setIsSignUp(false);
-        } else {
+        } else if (data?.user) {
           // After successful signup, update the profiles table with username, account_type and area_code
-          if (data.user) {
-            const { error: profileError } = await supabase
-              .from('profiles')
-              .upsert({
-                id: data.user.id,
-                username: formData.username,
-                account_type: formData.role,
-                area_code: formData.areaCode,
-              });
-              
-            if (profileError) throw profileError;
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .upsert({
+              id: data.user.id,
+              username: formData.username,
+              account_type: formData.role,
+              area_code: formData.areaCode,
+            });
+            
+          if (profileError) {
+            console.error("Profile update error:", profileError);
+            // Continue with the signup process even if profile update fails
           }
           
           toast({
@@ -94,10 +99,13 @@ export default function Auth() {
             description: "You can now sign in with your credentials.",
             variant: "success",
           });
+          
+          // Switch to sign in mode after successful signup
           setIsSignUp(false);
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        // Sign in the user
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: formData.email,
           password: formData.password,
         });
@@ -109,19 +117,21 @@ export default function Auth() {
           throw error;
         }
         
-        toast({
-          title: "Welcome back!",
-          description: "You have successfully signed in.",
-          variant: "success",
-        });
-        navigate('/');
+        if (data?.user) {
+          toast({
+            title: "Welcome back!",
+            description: "You have successfully signed in.",
+            variant: "success",
+          });
+          navigate('/');
+        }
       }
     } catch (error: any) {
       console.error("Auth error:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message,
+        description: error.message || "Authentication failed. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -219,6 +229,7 @@ export default function Auth() {
               placeholder="name@example.com"
               value={formData.email}
               onChange={handleInputChange}
+              disabled={isLoading}
             />
           </div>
 
@@ -235,6 +246,7 @@ export default function Auth() {
               value={formData.password}
               onChange={handleInputChange}
               minLength={6}
+              disabled={isLoading}
             />
           </div>
 
@@ -259,6 +271,7 @@ export default function Auth() {
             variant="link"
             className="text-sm"
             onClick={() => setIsSignUp(!isSignUp)}
+            disabled={isLoading}
           >
             {isSignUp
               ? 'Already have an account? Sign In'
