@@ -1,13 +1,30 @@
 
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useReportForm } from "@/hooks/useReportForm";
 import ReportHeader from "@/components/report/ReportHeader";
 import ReportForm from "@/components/report/ReportForm";
+import { useAuth } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
 
 const Report = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  // Redirect municipal/NGO users to dashboard
+  useEffect(() => {
+    if (user?.role === 'municipal' || user?.role === 'ngo') {
+      toast({
+        title: "Access restricted",
+        description: "Municipal/NGO accounts should use the dashboard instead.",
+        variant: "default",
+      });
+      navigate('/municipal-dashboard');
+    }
+  }, [user, navigate, toast]);
+  
   const {
-    user,
     title,
     setTitle,
     location,
@@ -22,12 +39,6 @@ const Report = () => {
     handleSubmit,
     isPending
   } = useReportForm();
-
-  // If user is municipal or NGO, redirect to dashboard
-  if (user?.role === 'municipal' || user?.role === 'ngo') {
-    navigate('/municipal-dashboard');
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-surface p-8">

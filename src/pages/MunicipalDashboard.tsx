@@ -84,9 +84,11 @@ const MunicipalDashboard = () => {
     return searchMatch;
   });
 
+  const roleTitle = profile?.account_type === 'ngo' ? 'NGO Waste Management Dashboard' : 'Municipal Waste Management Dashboard';
+
   return (
     <DashboardLayout 
-      title="Municipal Waste Management Dashboard"
+      title={roleTitle}
       subtitle={profile?.area_code && (
         <div className="flex items-center mt-2 text-sm font-medium text-primary">
           <Building className="w-4 h-4 mr-1" />

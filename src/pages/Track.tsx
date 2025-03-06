@@ -1,14 +1,33 @@
 
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/municipal/DashboardLayout";
 import TrackHeader from "@/components/track/TrackHeader";
 import EmptyState from "@/components/track/EmptyState";
 import ComplaintCard from "@/components/track/ComplaintCard";
 import ComplaintDetailsDialog from "@/components/track/ComplaintDetailsDialog";
 import { useTrackComplaints } from "@/hooks/useTrackComplaints";
+import { useAuth } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
 
 const Track = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
+  // Redirect municipal/NGO users to dashboard
+  useEffect(() => {
+    if (user?.role === 'municipal' || user?.role === 'ngo') {
+      toast({
+        title: "Access restricted",
+        description: "Municipal/NGO accounts should use the dashboard instead.",
+        variant: "default",
+      });
+      navigate('/municipal-dashboard');
+    }
+  }, [user, navigate, toast]);
+
   const {
-    user,
     searchQuery,
     setSearchQuery,
     complaints,

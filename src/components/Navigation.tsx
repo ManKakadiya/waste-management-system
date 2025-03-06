@@ -1,14 +1,16 @@
 
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, ClipboardList, Info, Recycle, BookOpen, LogIn, LogOut, User, Building, LayoutDashboard, MapPinned } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 const Navigation = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isMobile = useIsMobile();
   
@@ -44,7 +46,17 @@ const Navigation = () => {
   });
 
   const isMunicipalOrNGO = profile?.role === 'municipal' || profile?.role === 'ngo' || 
-                           user?.role === 'municipal' || user?.role === 'ngo';
+                          user?.role === 'municipal' || user?.role === 'ngo';
+
+  // Redirect municipal/NGO users automatically if they're on regular user pages
+  useEffect(() => {
+    if (isMunicipalOrNGO && user) {
+      const currentPath = location.pathname;
+      if (currentPath === '/report' || currentPath === '/track') {
+        navigate('/municipal-dashboard');
+      }
+    }
+  }, [isMunicipalOrNGO, location.pathname, navigate, user]);
 
   // Define links based on user role
   const getLinks = () => {
@@ -59,7 +71,6 @@ const Navigation = () => {
       return [
         ...baseLinks,
         { path: "/municipal-dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { path: "/track", label: "Reports", icon: Recycle },
       ];
     } else {
       // For regular users
