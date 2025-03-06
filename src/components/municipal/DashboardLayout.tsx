@@ -4,7 +4,7 @@ import { ReactNode } from "react";
 interface DashboardLayoutProps {
   children: ReactNode;
   title: string | React.ReactNode;
-  subtitle?: string;
+  subtitle?: string | React.ReactNode;
 }
 
 const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutProps) => {
