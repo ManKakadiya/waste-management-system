@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Search, MapPin, Clock, Upload, Check, AlertCircle, Building } from "lucide-react";
+import { Search, MapPin, Clock, Upload, Check, AlertCircle, Building, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 const MunicipalDashboard = () => {
   const { user } = useAuth();
@@ -33,6 +35,8 @@ const MunicipalDashboard = () => {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("");
   const [afterPhoto, setAfterPhoto] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     // Check if user is authorized (municipal or NGO)
@@ -51,64 +55,85 @@ const MunicipalDashboard = () => {
     }
   }, [user, navigate, toast]);
 
-  // This would be fetched from a database in a real implementation
-  const complaints = [
-    {
-      id: "WMS-2024-001",
-      title: "Overflowing Garbage Bin",
-      location: "123 Main Street",
-      description: "Garbage bin near the park entrance is overflowing and needs immediate attention.",
-      date: "2024-02-20",
-      status: "Resolved",
-      image: "https://images.unsplash.com/photo-1605600659873-d808a13e4d2a",
-      afterImage: "https://images.unsplash.com/photo-1558021212-51b6ecfa0db9",
-      area: "North Zone"
+  // Fetch profile to get area code
+  const { data: profile } = useQuery({
+    queryKey: ['profile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('area_code, account_type, username')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) throw error;
+      return data;
     },
-    {
-      id: "WMS-2024-002",
-      title: "Illegal Dumping",
-      location: "456 Oak Avenue",
-      description: "Found construction waste illegally dumped on the side of the road.",
-      date: "2024-02-19",
-      status: "Pending",
-      image: "https://images.unsplash.com/photo-1505567745926-ba89000f8a3c",
-      afterImage: null,
-      area: "South Zone"
+    enabled: !!user?.id,
+  });
+
+  // Fetch complaints based on area code
+  const { data: complaints = [], isLoading } = useQuery({
+    queryKey: ['complaints', profile?.area_code, statusFilter],
+    queryFn: async () => {
+      if (!profile?.area_code) return [];
+      
+      let query = supabase
+        .from('complaints')
+        .select('*')
+        .eq('pincode', profile.area_code);
+      
+      if (statusFilter) {
+        query = query.eq('status', statusFilter);
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
     },
-    {
-      id: "WMS-2024-003",
-      title: "Broken Recycling Bin",
-      location: "789 Pine Road",
-      description: "Community recycling bin is damaged and needs replacement.",
-      date: "2024-02-18",
-      status: "In Progress",
-      image: "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b",
-      afterImage: null,
-      area: "East Zone"
+    enabled: !!profile?.area_code,
+  });
+
+  // Update complaint status mutation
+  const updateComplaintMutation = useMutation({
+    mutationFn: async ({ id, status, afterImageUrl }: { id: string, status: string, afterImageUrl?: string }) => {
+      const updateData: any = { status };
+      
+      if (afterImageUrl) {
+        updateData.after_image_url = afterImageUrl;
+      }
+      
+      const { data, error } = await supabase
+        .from('complaints')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
     },
-    {
-      id: "WMS-2024-004",
-      title: "Garden Waste Not Cleared",
-      location: "Library Backyard",
-      description: "Garden waste not cleared in the library area.",
-      date: "2024-02-12",
-      status: "Under Review",
-      image: "https://images.unsplash.com/photo-1591193128914-5e555be66676",
-      afterImage: null,
-      area: "West Zone"
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['complaints'] });
+      toast({
+        title: "Status Updated",
+        description: `Complaint has been marked as ${selectedStatus}.`,
+      });
+      setStatusDialogOpen(false);
+      setSelectedStatus("");
+      setAfterPhoto(null);
     },
-    {
-      id: "WMS-2024-005",
-      title: "E-waste Collection Needed",
-      location: "Computer Lab",
-      description: "E-waste collection is needed in the computer lab.",
-      date: "2024-02-13",
-      status: "Pending",
-      image: "https://images.unsplash.com/photo-1567567528709-f474a724aacf",
-      afterImage: null,
-      area: "Central Zone"
-    },
-  ];
+    onError: (error) => {
+      console.error("Error updating complaint:", error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update complaint status. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
 
   const handleStatusChange = async () => {
     if (selectedStatus === "Resolved" && !afterPhoto) {
@@ -120,15 +145,57 @@ const MunicipalDashboard = () => {
       return;
     }
 
-    // Here you would update the complaint status in the database
-    toast({
-      title: "Status Updated",
-      description: `Complaint ${selectedComplaint?.id} has been marked as ${selectedStatus}.`,
-    });
-    
-    setStatusDialogOpen(false);
-    setSelectedStatus("");
-    setAfterPhoto(null);
+    if (!selectedComplaint?.id) {
+      toast({
+        title: "Error",
+        description: "Selected complaint not found.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      let afterImageUrl = null;
+      
+      // Upload the after photo if it exists
+      if (afterPhoto && selectedStatus === "Resolved") {
+        const file = afterPhoto.split(",")[1]; // Remove the data URL prefix
+        const fileName = `after_${selectedComplaint.id}_${Date.now()}.jpg`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('complaints')
+          .upload(fileName, decode(file), {
+            contentType: 'image/jpeg',
+            upsert: true
+          });
+        
+        if (uploadError) throw uploadError;
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('complaints')
+          .getPublicUrl(fileName);
+          
+        afterImageUrl = publicUrl;
+      }
+      
+      await updateComplaintMutation.mutateAsync({ 
+        id: selectedComplaint.id, 
+        status: selectedStatus,
+        afterImageUrl 
+      });
+    } catch (error) {
+      console.error("Error in status update process:", error);
+      toast({
+        title: "Update Failed",
+        description: "An error occurred while updating the status.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Helper function to decode base64
+  const decode = (dataString: string) => {
+    return Buffer.from(dataString, 'base64');
   };
 
   const handleAfterPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,6 +217,8 @@ const MunicipalDashboard = () => {
         return "text-orange-600 bg-orange-50";
       case "pending":
         return "text-red-600 bg-red-50";
+      case "under review":
+        return "text-blue-600 bg-blue-50";
       default:
         return "text-gray-600 bg-gray-50";
     }
@@ -168,20 +237,16 @@ const MunicipalDashboard = () => {
     }
   };
 
-  // Filter complaints based on search query AND user's area code
+  // Filter complaints based on search query
   const filteredComplaints = complaints.filter((complaint) => {
-    // First check if complaint matches the user's area (for municipal/NGO users)
-    const areaMatch = !user?.areaCode || complaint.area === user.areaCode;
-    
-    // Then check if it matches the search query
     const searchMatch = 
       complaint.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       complaint.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       complaint.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
       complaint.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      complaint.area.toLowerCase().includes(searchQuery.toLowerCase());
+      complaint.pincode.toLowerCase().includes(searchQuery.toLowerCase());
     
-    return areaMatch && searchMatch;
+    return searchMatch;
   });
 
   return (
@@ -190,10 +255,10 @@ const MunicipalDashboard = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold">Municipal Waste Management Dashboard</h1>
-            {user?.areaCode && (
+            {profile?.area_code && (
               <div className="flex items-center mt-2 text-sm font-medium text-primary">
                 <Building className="w-4 h-4 mr-1" />
-                Managing Area: {user.areaCode}
+                Managing Area: {profile.area_code} - {profile?.account_type === 'municipal' ? 'Municipal Corporation' : 'NGO'}
               </div>
             )}
           </div>
@@ -204,20 +269,39 @@ const MunicipalDashboard = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               className="w-full pl-10 pr-4 py-2"
-              placeholder="Search complaints by ID, title, location, or area..."
+              placeholder="Search complaints by title, location, or description..."
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+          <div className="w-full sm:w-auto">
+            <Select value={statusFilter || ""} onValueChange={(value) => setStatusFilter(value || null)}>
+              <SelectTrigger className="w-full sm:w-[180px] flex gap-2">
+                <Filter className="w-4 h-4" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="Under Review">Under Review</SelectItem>
+                <SelectItem value="In Progress">In Progress</SelectItem>
+                <SelectItem value="Resolved">Resolved</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        {filteredComplaints.length === 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          </div>
+        ) : filteredComplaints.length === 0 ? (
           <Card className="p-8 text-center">
             <h3 className="text-xl font-medium mb-2">No Complaints Found</h3>
             <p className="text-gray-500">
-              {user?.areaCode 
-                ? `There are no complaints in your area (${user.areaCode}) matching your search criteria.`
+              {profile?.area_code 
+                ? `There are no complaints in your area (${profile.area_code}) matching your criteria.`
                 : "No complaints match your search criteria."}
             </p>
           </Card>
@@ -242,12 +326,12 @@ const MunicipalDashboard = () => {
                     </div>
                     <div className="flex items-center text-sm text-gray-500 mb-2">
                       <MapPin className="h-4 w-4 mr-1" />
-                      {complaint.location} - <span className="font-medium ml-1">{complaint.area}</span>
+                      {complaint.location} - <span className="font-medium ml-1">{complaint.pincode}</span>
                     </div>
                     <p className="text-gray-600 mb-3">{complaint.description}</p>
                     <div className="flex items-center text-sm text-gray-500">
                       <Clock className="h-4 w-4 mr-1" />
-                      Reported on: {new Date(complaint.date).toLocaleDateString()}
+                      Reported on: {new Date(complaint.created_at).toLocaleDateString()}
                     </div>
                   </div>
                   
@@ -291,10 +375,10 @@ const MunicipalDashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             <div>
               <h4 className="font-medium mb-2">Before Photo</h4>
-              {selectedComplaint?.image ? (
+              {selectedComplaint?.image_url ? (
                 <div className="rounded-lg overflow-hidden h-64 bg-gray-100">
                   <img 
-                    src={selectedComplaint?.image} 
+                    src={selectedComplaint?.image_url} 
                     alt="Before cleanup" 
                     className="w-full h-full object-cover"
                   />
@@ -308,10 +392,10 @@ const MunicipalDashboard = () => {
             
             <div>
               <h4 className="font-medium mb-2">After Photo</h4>
-              {selectedComplaint?.afterImage ? (
+              {selectedComplaint?.after_image_url ? (
                 <div className="rounded-lg overflow-hidden h-64 bg-gray-100">
                   <img 
-                    src={selectedComplaint?.afterImage} 
+                    src={selectedComplaint?.after_image_url} 
                     alt="After cleanup" 
                     className="w-full h-full object-cover"
                   />
@@ -326,9 +410,9 @@ const MunicipalDashboard = () => {
           
           <div className="space-y-2">
             <p><strong>Location:</strong> {selectedComplaint?.location}</p>
-            <p><strong>Area:</strong> {selectedComplaint?.area}</p>
+            <p><strong>Area Code:</strong> {selectedComplaint?.pincode}</p>
             <p><strong>Description:</strong> {selectedComplaint?.description}</p>
-            <p><strong>Reported on:</strong> {selectedComplaint?.date}</p>
+            <p><strong>Reported on:</strong> {selectedComplaint?.created_at ? new Date(selectedComplaint.created_at).toLocaleDateString() : 'N/A'}</p>
             <p><strong>Status:</strong> {selectedComplaint?.status}</p>
           </div>
           
@@ -405,7 +489,9 @@ const MunicipalDashboard = () => {
             <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleStatusChange}>
+            <Button onClick={handleStatusChange} disabled={updateComplaintMutation.isPending}>
+              {updateComplaintMutation.isPending ? 
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" /> : null}
               Update Status
             </Button>
           </DialogFooter>

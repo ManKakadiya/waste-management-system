@@ -15,7 +15,17 @@ import RecyclingGuide from "./pages/RecyclingGuide";
 import NotFound from "./pages/NotFound";
 import MunicipalDashboard from "./pages/MunicipalDashboard";
 
-const queryClient = new QueryClient();
+// Initialize storage buckets
+import "@/integrations/supabase/storage";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

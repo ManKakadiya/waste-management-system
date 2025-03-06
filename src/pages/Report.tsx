@@ -3,16 +3,89 @@ import { useState } from "react";
 import { Camera, MapPin, Send, MapPinned } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
+import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 
 const Report = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("");
   const [pincode, setPincode] = useState("");
   const [description, setDescription] = useState("");
+
+  // If user is municipal or NGO, redirect to dashboard
+  if (user?.role === 'municipal' || user?.role === 'ngo') {
+    navigate('/municipal-dashboard');
+    return null;
+  }
+
+  const createComplaintMutation = useMutation({
+    mutationFn: async ({ 
+      title, 
+      location, 
+      pincode, 
+      description, 
+      imageUrl 
+    }: { 
+      title: string; 
+      location: string; 
+      pincode: string; 
+      description: string; 
+      imageUrl?: string;
+    }) => {
+      if (!user?.id) {
+        throw new Error("User not authenticated");
+      }
+
+      const { data, error } = await supabase
+        .from('complaints')
+        .insert({
+          title,
+          location,
+          pincode,
+          description,
+          image_url: imageUrl,
+          user_id: user.id,
+          area_code: pincode // We're using pincode as area_code for matching
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Report Submitted",
+        description: "Your waste report has been successfully submitted.",
+      });
+      
+      // Reset form
+      setTitle("");
+      setLocation("");
+      setPincode("");
+      setDescription("");
+      setImage(null);
+      setLoading(false);
+      
+      // Redirect to track page
+      navigate('/track');
+    },
+    onError: (error) => {
+      console.error("Error submitting report:", error);
+      toast({
+        title: "Submission Failed",
+        description: "There was an error submitting your report. Please try again.",
+        variant: "destructive",
+      });
+      setLoading(false);
+    }
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,21 +137,50 @@ const Report = () => {
     
     setLoading(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast({
-      title: "Report Submitted",
-      description: "Your waste report has been successfully submitted.",
-    });
-    
-    // Reset form
-    setTitle("");
-    setLocation("");
-    setPincode("");
-    setDescription("");
-    setImage(null);
-    setLoading(false);
+    try {
+      let imageUrl;
+      
+      if (image) {
+        // Remove the data URL prefix and get the base64 data
+        const file = image.split(",")[1];
+        const fileName = `report_${Date.now()}.jpg`;
+        
+        // Upload the image to Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('complaints')
+          .upload(fileName, Buffer.from(file, 'base64'), {
+            contentType: 'image/jpeg',
+            upsert: true
+          });
+          
+        if (uploadError) throw uploadError;
+        
+        // Get the public URL of the uploaded image
+        const { data: { publicUrl } } = supabase.storage
+          .from('complaints')
+          .getPublicUrl(fileName);
+          
+        imageUrl = publicUrl;
+      }
+      
+      // Create the complaint record
+      await createComplaintMutation.mutateAsync({
+        title,
+        location,
+        pincode,
+        description,
+        imageUrl
+      });
+      
+    } catch (error) {
+      console.error("Error in submission process:", error);
+      toast({
+        title: "Upload Failed",
+        description: "An error occurred while uploading your report.",
+        variant: "destructive",
+      });
+      setLoading(false);
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -157,15 +259,9 @@ const Report = () => {
                   maxLength={6}
                 />
               </div>
-              {user?.role === 'municipal' || user?.role === 'ngo' ? (
-                <p className="text-xs text-text-secondary">
-                  This report will be assigned to your organization based on the pincode.
-                </p>
-              ) : (
-                <p className="text-xs text-text-secondary">
-                  The pincode helps assign your report to the responsible organization.
-                </p>
-              )}
+              <p className="text-xs text-text-secondary">
+                The pincode helps assign your report to the responsible organization.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -219,10 +315,10 @@ const Report = () => {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || createComplaintMutation.isPending}
               className="w-full flex items-center justify-center px-6 py-3 bg-primary text-white rounded-xl hover:bg-primary-hover transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? (
+              {loading || createComplaintMutation.isPending ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>

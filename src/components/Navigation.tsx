@@ -18,25 +18,21 @@ const Navigation = () => {
       if (!user?.id) return null;
       
       try {
-        // Only fetch username from profiles table since it's the only field available
         const { data, error } = await supabase
           .from('profiles')
-          .select('username')
+          .select('username, account_type, area_code')
           .eq('id', user.id)
           .single();
         
         if (error) throw error;
         
-        // Return an object combining profile data with user metadata
         return {
           username: data?.username || user.username || 'User',
-          // These fields come from user metadata, not the profiles table
-          role: user.role || 'user',
-          area_code: user.areaCode || '',
+          role: data?.account_type || user.role || 'user',
+          area_code: data?.area_code || user.areaCode || '',
         };
       } catch (error) {
         console.error("Error fetching profile:", error);
-        // Provide fallback values from user object if available
         return {
           username: user.username || 'User',
           role: user.role || 'user',
@@ -47,24 +43,35 @@ const Navigation = () => {
     enabled: !!user?.id,
   });
 
-  const isMunicipalOrNGO = user?.role === 'municipal' || user?.role === 'ngo';
+  const isMunicipalOrNGO = profile?.role === 'municipal' || profile?.role === 'ngo' || 
+                           user?.role === 'municipal' || user?.role === 'ngo';
 
-  const links = [
-    { path: "/", label: "Home", icon: Home },
-    { path: "/report", label: "Report", icon: ClipboardList },
-    { path: "/track", label: "Track", icon: Recycle },
-    { path: "/guide", label: "Guide", icon: BookOpen },
-    { path: "/about", label: "About", icon: Info },
-  ];
+  // Define links based on user role
+  const getLinks = () => {
+    const baseLinks = [
+      { path: "/", label: "Home", icon: Home },
+      { path: "/about", label: "About", icon: Info },
+      { path: "/guide", label: "Guide", icon: BookOpen },
+    ];
+    
+    if (isMunicipalOrNGO) {
+      // For municipal/NGO users
+      return [
+        ...baseLinks,
+        { path: "/municipal-dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { path: "/track", label: "Reports", icon: Recycle },
+      ];
+    } else {
+      // For regular users
+      return [
+        ...baseLinks,
+        { path: "/report", label: "Report", icon: ClipboardList },
+        { path: "/track", label: "Track", icon: Recycle },
+      ];
+    }
+  };
 
-  // Add municipal dashboard link only for municipal/NGO users
-  if (isMunicipalOrNGO) {
-    links.push({ 
-      path: "/municipal-dashboard", 
-      label: "Dashboard", 
-      icon: LayoutDashboard 
-    });
-  }
+  const links = getLinks();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();

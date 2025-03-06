@@ -5,84 +5,33 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 const Track = () => {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedComplaint, setSelectedComplaint] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const complaints = [
-    {
-      id: "WMS-2024-001",
-      title: "Overflowing Garbage Bin",
-      location: "123 Main Street",
-      description: "Garbage bin near the park entrance is overflowing and needs immediate attention.",
-      date: "2024-02-20",
-      status: "Resolved",
-      image: "https://images.unsplash.com/photo-1605600659873-d808a13e4d2a",
-      afterImage: "https://images.unsplash.com/photo-1558021212-51b6ecfa0db9",
+  // Fetch user's complaints
+  const { data: complaints = [], isLoading } = useQuery({
+    queryKey: ['user-complaints', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('complaints')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
     },
-    {
-      id: "WMS-2024-002",
-      title: "Illegal Dumping",
-      location: "456 Oak Avenue",
-      description: "Found construction waste illegally dumped on the side of the road.",
-      date: "2024-02-19",
-      status: "Pending",
-      image: "https://images.unsplash.com/photo-1505567745926-ba89000f8a3c",
-      afterImage: null,
-    },
-    {
-      id: "WMS-2024-003",
-      title: "Broken Recycling Bin",
-      location: "789 Pine Road",
-      description: "Community recycling bin is damaged and needs replacement.",
-      date: "2024-02-18",
-      status: "In Progress",
-      image: "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b",
-      afterImage: null,
-    },
-    {
-      id: "WMS-2024-004",
-      title: "Garden Waste Not Cleared",
-      location: "Library Backyard",
-      description: "Garden waste not cleared in the library area.",
-      date: "2024-02-12",
-      status: "Under Review",
-      image: "https://images.unsplash.com/photo-1591193128914-5e555be66676",
-      afterImage: null,
-    },
-    {
-      id: "WMS-2024-005",
-      title: "E-waste Collection Needed",
-      location: "Computer Lab",
-      description: "E-waste collection is needed in the computer lab.",
-      date: "2024-02-13",
-      status: "Pending",
-      image: "https://images.unsplash.com/photo-1567567528709-f474a724aacf",
-      afterImage: null,
-    },
-    {
-      id: "WMS-2024-006",
-      title: "Plastic Bottles After Event",
-      location: "Sports Ground",
-      description: "Plastic bottles found after a sports event.",
-      date: "2024-02-13",
-      status: "In Progress",
-      image: null,
-      afterImage: null,
-    },
-    {
-      id: "WMS-2024-007",
-      title: "Hazardous Waste Disposal Required",
-      location: "Chemistry Lab",
-      description: "Hazardous waste disposal is required in the chemistry lab.",
-      date: "2024-02-14",
-      status: "Under Review",
-      image: null,
-      afterImage: null,
-    },
-  ];
+    enabled: !!user?.id,
+  });
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -92,6 +41,8 @@ const Track = () => {
         return "text-orange-600 bg-orange-50";
       case "pending":
         return "text-red-600 bg-red-50";
+      case "under review":
+        return "text-blue-600 bg-blue-50";
       default:
         return "text-gray-600 bg-gray-50";
     }
@@ -120,6 +71,10 @@ const Track = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-surface to-surface-secondary p-4 sm:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-3xl font-bold">Track Your Reports</h1>
+        </div>
+
         <div className="flex flex-col sm:flex-row gap-4 items-center">
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -133,52 +88,78 @@ const Track = () => {
           </div>
         </div>
 
-        <div className="grid gap-4">
-          {filteredComplaints.map((complaint) => (
-            <Card
-              key={complaint.id}
-              className="p-4 hover:shadow-lg transition-shadow"
-            >
-              <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-lg font-semibold">{complaint.title}</h3>
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium inline-flex items-center gap-1 ${getStatusColor(
-                        complaint.status
-                      )}`}
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          </div>
+        ) : user && filteredComplaints.length === 0 ? (
+          <Card className="p-8 text-center">
+            <h3 className="text-xl font-medium mb-2">No Reports Found</h3>
+            {searchQuery ? (
+              <p className="text-gray-500">No reports match your search criteria.</p>
+            ) : (
+              <p className="text-gray-500">You haven't submitted any reports yet.</p>
+            )}
+            <Button className="mt-4" onClick={() => window.location.href = "/report"}>
+              Submit a Report
+            </Button>
+          </Card>
+        ) : !user ? (
+          <Card className="p-8 text-center">
+            <h3 className="text-xl font-medium mb-2">Sign In Required</h3>
+            <p className="text-gray-500">Please sign in to view your reports.</p>
+            <Button className="mt-4" onClick={() => window.location.href = "/auth"}>
+              Sign In
+            </Button>
+          </Card>
+        ) : (
+          <div className="grid gap-4">
+            {filteredComplaints.map((complaint) => (
+              <Card
+                key={complaint.id}
+                className="p-4 hover:shadow-lg transition-shadow"
+              >
+                <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="text-lg font-semibold">{complaint.title}</h3>
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm font-medium inline-flex items-center gap-1 ${getStatusColor(
+                          complaint.status
+                        )}`}
+                      >
+                        {getStatusIcon(complaint.status)} {complaint.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center text-sm text-gray-500 mb-2">
+                      <MapPin className="h-4 w-4 mr-1" />
+                      {complaint.location}
+                    </div>
+                    <p className="text-gray-600 mb-3">{complaint.description}</p>
+                    <div className="flex items-center text-sm text-gray-500">
+                      <Clock className="h-4 w-4 mr-1" />
+                      Reported on: {new Date(complaint.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Button 
+                      variant="outline" 
+                      className="flex items-center gap-2"
+                      onClick={() => {
+                        setSelectedComplaint(complaint);
+                        setDialogOpen(true);
+                      }}
                     >
-                      {getStatusIcon(complaint.status)} {complaint.status}
-                    </span>
-                  </div>
-                  <div className="flex items-center text-sm text-gray-500 mb-2">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    {complaint.location}
-                  </div>
-                  <p className="text-gray-600 mb-3">{complaint.description}</p>
-                  <div className="flex items-center text-sm text-gray-500">
-                    <Clock className="h-4 w-4 mr-1" />
-                    Reported on: {new Date(complaint.date).toLocaleDateString()}
+                      <Eye className="h-4 w-4" />
+                      View Details
+                    </Button>
                   </div>
                 </div>
-                
-                <div>
-                  <Button 
-                    variant="outline" 
-                    className="flex items-center gap-2"
-                    onClick={() => {
-                      setSelectedComplaint(complaint);
-                      setDialogOpen(true);
-                    }}
-                  >
-                    <Eye className="h-4 w-4" />
-                    View Details
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Complaint Details Dialog */}
@@ -194,10 +175,10 @@ const Track = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             <div>
               <h4 className="font-medium mb-2">Reported Photo</h4>
-              {selectedComplaint?.image ? (
+              {selectedComplaint?.image_url ? (
                 <div className="rounded-lg overflow-hidden h-64 bg-gray-100">
                   <img 
-                    src={selectedComplaint?.image} 
+                    src={selectedComplaint?.image_url} 
                     alt="Reported issue" 
                     className="w-full h-full object-cover"
                   />
@@ -211,10 +192,10 @@ const Track = () => {
             
             <div>
               <h4 className="font-medium mb-2">After Resolution Photo</h4>
-              {selectedComplaint?.afterImage ? (
+              {selectedComplaint?.after_image_url ? (
                 <div className="rounded-lg overflow-hidden h-64 bg-gray-100">
                   <img 
-                    src={selectedComplaint?.afterImage} 
+                    src={selectedComplaint?.after_image_url} 
                     alt="After resolution" 
                     className="w-full h-full object-cover"
                   />
@@ -233,8 +214,9 @@ const Track = () => {
           
           <div className="space-y-2">
             <p><strong>Location:</strong> {selectedComplaint?.location}</p>
+            <p><strong>Area Code:</strong> {selectedComplaint?.pincode}</p>
             <p><strong>Description:</strong> {selectedComplaint?.description}</p>
-            <p><strong>Reported on:</strong> {selectedComplaint?.date}</p>
+            <p><strong>Reported on:</strong> {selectedComplaint?.created_at ? new Date(selectedComplaint.created_at).toLocaleDateString() : 'N/A'}</p>
             <p><strong>Status:</strong> {selectedComplaint?.status}</p>
           </div>
           
