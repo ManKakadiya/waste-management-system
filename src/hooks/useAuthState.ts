@@ -12,8 +12,8 @@ export function useAuthState() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Get session handlers
-  const { initializeAuth, handleAuthChanges } = useSessionHandlers(setUser, setLoading);
+  // Get session handlers - pass navigate function
+  const { initializeAuth, handleAuthChanges } = useSessionHandlers(setUser, setLoading, navigate);
   
   // Get route protection
   const { protectRoutes: protectRoutesBase } = useRouteProtection();

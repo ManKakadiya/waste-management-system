@@ -3,8 +3,15 @@ import { useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast'; 
 import { processUserSession, ensureUserProfile } from './userProcessor';
 import { useRouteProtection } from './routeProtection';
+import { NavigateFunction } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { validateRole } from './types';
 
-export const useSessionHandlers = (setUser: any, setLoading: any) => {
+export const useSessionHandlers = (
+  setUser: any, 
+  setLoading: any, 
+  navigate: NavigateFunction
+) => {
   const { toast } = useToast();
   const { redirectBasedOnRole } = useRouteProtection();
   
@@ -140,8 +147,3 @@ export const useSessionHandlers = (setUser: any, setLoading: any) => {
   
   return { initializeAuth, handleAuthChanges };
 };
-
-// Add missing imports
-import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
-import { validateRole } from './types';
