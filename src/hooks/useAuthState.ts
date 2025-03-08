@@ -15,16 +15,25 @@ export function useAuthState() {
   // Process user data from session
   const processUserData = useCallback(async (session: any) => {
     try {
-      // Fetch user profile data
+      console.log("Processing user data for:", session.user.id);
+      
+      // Fetch user profile data - critical for role detection
       const profileData = await fetchUserProfile(session.user.id);
       
       // Get metadata from user
       const userMetadata = session.user.user_metadata || {};
       
+      console.log("Profile data:", profileData);
+      console.log("User metadata:", userMetadata);
+      
+      // Determine the role - IMPORTANT: prioritize profile data over metadata
+      const role = profileData?.account_type || userMetadata.role || 'user';
+      console.log("Determined role:", role);
+      
       // Set user with combined data, prioritizing profile data over metadata
       setUser({
         ...session.user,
-        role: profileData?.account_type || userMetadata.role || 'user',
+        role: role,
         areaCode: profileData?.area_code || userMetadata.areaCode || '',
         username: profileData?.username || userMetadata.username || '',
       });
@@ -74,7 +83,25 @@ export function useAuthState() {
               role: userMetadata.role || 'user',
               areaCode: userMetadata.areaCode || ''
             });
+            
+            // Refresh user data after profile creation
+            const refreshedProfile = await fetchUserProfile(session.user.id);
+            if (refreshedProfile) {
+              console.log("Profile created, updating user data with fresh profile");
+              setUser(prevUser => ({
+                ...(prevUser || {}),
+                role: refreshedProfile.account_type || prevUser?.role || 'user',
+                areaCode: refreshedProfile.area_code || prevUser?.areaCode || '',
+                username: refreshedProfile.username || prevUser?.username || '',
+              }));
+              
+              // Also redirect based on the refreshed role
+              redirectBasedOnRole(refreshedProfile.account_type);
+            }
           }, 1000);
+        } else {
+          // We already have profile data, redirect based on that role
+          redirectBasedOnRole(profileData.account_type);
         }
       } else {
         console.log("No active session found");
@@ -109,11 +136,24 @@ export function useAuthState() {
                 role: userMetadata.role || 'user',
                 areaCode: userMetadata.areaCode || ''
               });
+              
+              // Refresh user data after profile creation
+              const refreshedProfile = await fetchUserProfile(session.user.id);
+              if (refreshedProfile) {
+                console.log("Profile created, updating user data with fresh profile");
+                setUser(prevUser => ({
+                  ...(prevUser || {}),
+                  role: refreshedProfile.account_type || prevUser?.role || 'user',
+                  areaCode: refreshedProfile.area_code || prevUser?.areaCode || '',
+                  username: refreshedProfile.username || prevUser?.username || '',
+                }));
+                
+                // Also redirect based on the refreshed role
+                redirectBasedOnRole(refreshedProfile.account_type);
+              }
             }, 1000);
-          }
-          
-          // Redirect user based on role when sign in completes
-          if (event === 'SIGNED_IN') {
+          } else if (event === 'SIGNED_IN') {
+            // Redirect user based on role immediately on sign in
             const role = profileData?.account_type || session.user.user_metadata?.role || 'user';
             redirectBasedOnRole(role);
           }
@@ -180,6 +220,7 @@ export function useAuthState() {
     }
     
     const isMunicipalOrNGO = user.role === 'municipal' || user.role === 'ngo';
+    console.log("Route protection - User role:", user.role, "Is Municipal/NGO:", isMunicipalOrNGO);
     
     // Protect municipal dashboard from regular users
     if (!isMunicipalOrNGO && pathname === '/municipal-dashboard') {

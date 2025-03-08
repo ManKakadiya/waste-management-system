@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -44,12 +44,14 @@ const Profile = () => {
     areaCode: profile?.area_code || user?.areaCode || '',
   });
   
-  // Update when profile is loaded
-  if (profile && !isLoading && formData.areaCode === '' && profile.area_code) {
-    setFormData({
-      areaCode: profile.area_code,
-    });
-  }
+  // Update form data when profile is loaded
+  useEffect(() => {
+    if (profile && !isLoading) {
+      setFormData({
+        areaCode: profile.area_code || user?.areaCode || '',
+      });
+    }
+  }, [profile, isLoading, user?.areaCode]);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -72,6 +74,7 @@ const Profile = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['profile', user.id] }); // Invalidate twice to ensure all queries get the update
       toast({
         title: 'Profile updated',
         description: 'Your profile has been updated successfully.',
@@ -127,6 +130,7 @@ const Profile = () => {
     );
   }
   
+  // Make sure we get the account type from the profile data first, falling back to user data
   const accountType = profile?.account_type || user?.role || 'user';
   const isOrganization = accountType === 'municipal' || accountType === 'ngo';
   
@@ -140,7 +144,7 @@ const Profile = () => {
       </div>
       
       <Card>
-        <CardHeader>
+        <CardHeader className="bg-muted/30">
           <CardTitle className="flex items-center gap-2">
             {isOrganization ? (
               <Building className="h-5 w-5 text-primary" />
@@ -158,11 +162,14 @@ const Profile = () => {
           </CardDescription>
         </CardHeader>
         
-        <CardContent>
+        <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Username - Read-only */}
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username" className="flex items-center gap-1">
+                <UserCircle className="h-4 w-4" />
+                Username
+              </Label>
               <Input
                 id="username"
                 name="username"
@@ -178,7 +185,14 @@ const Profile = () => {
             
             {/* Account Type - Read-only */}
             <div className="space-y-2">
-              <Label htmlFor="accountType">Account Type</Label>
+              <Label htmlFor="accountType" className="flex items-center gap-1">
+                {isOrganization ? (
+                  <Building className="h-4 w-4" />
+                ) : (
+                  <UserIcon className="h-4 w-4" />
+                )}
+                Account Type
+              </Label>
               <Input
                 id="accountType"
                 name="accountType"
@@ -199,7 +213,10 @@ const Profile = () => {
             {/* Area Code - Editable only for municipal/NGO */}
             {isOrganization && (
               <div className="space-y-2">
-                <Label htmlFor="areaCode">Area Code</Label>
+                <Label htmlFor="areaCode" className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4" />
+                  Area Code
+                </Label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -222,7 +239,10 @@ const Profile = () => {
             
             {/* Email - Read-only */}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                Email
+              </Label>
               <Input
                 id="email"
                 name="email"

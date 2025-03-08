@@ -68,7 +68,6 @@ const Navigation = () => {
       return [
         ...baseLinks,
         { path: "/municipal-dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { path: "/profile", label: "Profile", icon: UserCircle },
       ];
     } else {
       // For regular users
@@ -76,7 +75,6 @@ const Navigation = () => {
         ...baseLinks,
         { path: "/report", label: "Report", icon: ClipboardList },
         { path: "/track", label: "Track", icon: Recycle },
-        { path: "/profile", label: "Profile", icon: UserCircle },
       ];
     }
   }, [user, isMunicipalOrNGO]);
@@ -128,29 +126,33 @@ const Navigation = () => {
             <div className="ml-0.5 sm:ml-2 flex items-center gap-2">
               {user ? (
                 <>
-                  <div className="hidden sm:flex items-center gap-2 px-2 py-1 rounded-lg bg-white/10">
+                  {/* Profile Link - Combined version */}
+                  <Link
+                    to="/profile"
+                    className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105
+                      ${location.pathname === '/profile'
+                        ? "bg-white/20 text-white shadow-inner" 
+                        : "text-white/70 hover:text-white hover:bg-white/10"
+                      }`}
+                  >
                     {isMunicipalOrNGO ? (
-                      <>
-                        <Building className="w-4 h-4 text-white/70" />
-                        <span className="text-sm text-white">
-                          {profile?.username || user.username || 'Organization'}
-                        </span>
-                        {profile?.area_code && (
-                          <div className="flex items-center text-white/80 text-xs bg-white/10 px-1.5 py-0.5 rounded">
-                            <MapPinned className="w-3 h-3 mr-1" />
-                            {profile.area_code}
-                          </div>
-                        )}
-                      </>
+                      <Building className="w-4 h-4" />
                     ) : (
-                      <>
-                        <User className="w-4 h-4 text-white/70" />
-                        <span className="text-sm text-white">
-                          {profile?.username || user.username || 'User'}
-                        </span>
-                      </>
+                      <UserCircle className="w-4 h-4" />
                     )}
-                  </div>
+                    <span className="hidden sm:inline">Profile</span>
+                    
+                    {/* Show username or area code in smaller text */}
+                    <span className="hidden sm:inline text-xs opacity-80 bg-white/10 px-1.5 py-0.5 rounded ml-1">
+                      {profile?.username?.substring(0, 8) || user.username?.substring(0, 8) || ''}
+                      {profile?.area_code && isMunicipalOrNGO ? 
+                        <span className="ml-1 flex items-center">
+                          <MapPinned className="w-3 h-3 inline mr-0.5" />
+                          {profile.area_code}
+                        </span> : ''}
+                    </span>
+                  </Link>
+                  
                   <Button
                     variant="ghost"
                     size="sm"
