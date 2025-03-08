@@ -88,12 +88,15 @@ export function useAuthState() {
             const refreshedProfile = await fetchUserProfile(session.user.id);
             if (refreshedProfile) {
               console.log("Profile created, updating user data with fresh profile");
-              setUser(prevUser => ({
-                ...(prevUser || {}),
-                role: refreshedProfile.account_type || prevUser?.role || 'user',
-                areaCode: refreshedProfile.area_code || prevUser?.areaCode || '',
-                username: refreshedProfile.username || prevUser?.username || '',
-              }));
+              setUser(prevUser => {
+                if (!prevUser) return null;
+                return {
+                  ...prevUser,
+                  role: refreshedProfile.account_type || prevUser.role || 'user',
+                  areaCode: refreshedProfile.area_code || prevUser.areaCode || '',
+                  username: refreshedProfile.username || prevUser.username || '',
+                };
+              });
               
               // Also redirect based on the refreshed role
               redirectBasedOnRole(refreshedProfile.account_type);
@@ -141,12 +144,15 @@ export function useAuthState() {
               const refreshedProfile = await fetchUserProfile(session.user.id);
               if (refreshedProfile) {
                 console.log("Profile created, updating user data with fresh profile");
-                setUser(prevUser => ({
-                  ...(prevUser || {}),
-                  role: refreshedProfile.account_type || prevUser?.role || 'user',
-                  areaCode: refreshedProfile.area_code || prevUser?.areaCode || '',
-                  username: refreshedProfile.username || prevUser?.username || '',
-                }));
+                setUser(prevUser => {
+                  if (!prevUser) return null;
+                  return {
+                    ...prevUser,
+                    role: refreshedProfile.account_type || prevUser.role || 'user',
+                    areaCode: refreshedProfile.area_code || prevUser.areaCode || '',
+                    username: refreshedProfile.username || prevUser.username || '',
+                  };
+                });
                 
                 // Also redirect based on the refreshed role
                 redirectBasedOnRole(refreshedProfile.account_type);
