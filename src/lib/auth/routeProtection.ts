@@ -8,19 +8,25 @@ export const useRouteProtection = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Redirect based on user role
+  // Redirect based on user role - only for initial login
   const redirectBasedOnRole = (role: string | undefined) => {
     const validRole = validateRole(role || 'user');
+    
+    // Avoid redirecting if already on a suitable page
+    const pathname = window.location.pathname;
+    
     if (validRole === 'municipal' || validRole === 'ngo') {
-      console.log(`Redirecting ${validRole} user to dashboard`);
-      navigate('/municipal-dashboard');
-    } else {
+      if (pathname !== '/municipal-dashboard') {
+        console.log(`Redirecting ${validRole} user to dashboard`);
+        navigate('/municipal-dashboard');
+      }
+    } else if (pathname === '/auth') {
       console.log('Redirecting regular user to home');
       navigate('/');
     }
   };
   
-  // Unified route protection
+  // Unified route protection - checks if current page is allowed
   const protectRoutes = (pathname: string, user: AuthUser) => {
     if (!user) {
       // If not logged in, only allow access to public routes

@@ -1,6 +1,6 @@
 
 import { Link, useLocation } from "react-router-dom";
-import { LogIn, LogOut, Building, UserCircle, MapPinned } from "lucide-react";
+import { LogIn, LogOut, Building, User, MapPinned } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -34,7 +34,7 @@ export const UserActions = ({ user, profile, isMunicipalOrNGO }: UserActionsProp
 
   return (
     <>
-      {/* Profile Link */}
+      {/* Profile Link - Username only */}
       <Link
         to="/profile"
         className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105
@@ -44,15 +44,14 @@ export const UserActions = ({ user, profile, isMunicipalOrNGO }: UserActionsProp
           }`}
       >
         {isMunicipalOrNGO ? (
-          <Building className="w-4 h-4" />
+          <Building className="w-4 h-4 mr-1" />
         ) : (
-          <UserCircle className="w-4 h-4" />
+          <User className="w-4 h-4 mr-1" />
         )}
-        <span className="hidden sm:inline">Profile</span>
         
-        {/* Show username or area code in smaller text */}
-        <span className="hidden sm:inline text-xs opacity-80 bg-white/10 px-1.5 py-0.5 rounded ml-1">
-          {profile?.username?.substring(0, 8) || user.username?.substring(0, 8) || ''}
+        {/* Show username or area code */}
+        <span className="inline text-sm">
+          {profile?.username?.substring(0, 8) || user.username?.substring(0, 8) || 'User'}
           {profile?.area_code && isMunicipalOrNGO ? 
             <span className="ml-1 flex items-center">
               <MapPinned className="w-3 h-3 inline mr-0.5" />
