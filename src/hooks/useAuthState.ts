@@ -27,13 +27,16 @@ export function useAuthState() {
       console.log("User metadata:", userMetadata);
       
       // Determine the role - IMPORTANT: prioritize profile data over metadata
-      const role = profileData?.account_type || userMetadata.role || 'user';
-      console.log("Determined role:", role);
+      // Ensure the role is of the correct type
+      const roleFromProfile = profileData?.account_type || userMetadata.role || 'user';
+      const validatedRole = validateRole(roleFromProfile);
+      
+      console.log("Determined role:", validatedRole);
       
       // Set user with combined data, prioritizing profile data over metadata
       setUser({
         ...session.user,
-        role: role,
+        role: validatedRole,
         areaCode: profileData?.area_code || userMetadata.areaCode || '',
         username: profileData?.username || userMetadata.username || '',
       });
@@ -42,15 +45,24 @@ export function useAuthState() {
     } catch (error) {
       console.error("Error processing user data:", error);
       // Still set the user with available data
+      const roleFromMetadata = session.user.user_metadata?.role || 'user';
       setUser({
         ...session.user,
-        role: session.user.user_metadata?.role || 'user',
+        role: validateRole(roleFromMetadata),
         areaCode: session.user.user_metadata?.areaCode || '',
         username: session.user.user_metadata?.username || '',
       });
       return null;
     }
   }, []);
+
+  // Validate that the role is one of the expected values
+  const validateRole = (role: string): 'user' | 'municipal' | 'ngo' => {
+    if (role === 'municipal' || role === 'ngo') {
+      return role;
+    }
+    return 'user';
+  };
 
   // Initialize auth state
   const initializeAuth = useCallback(async () => {
@@ -90,9 +102,10 @@ export function useAuthState() {
               console.log("Profile created, updating user data with fresh profile");
               setUser(prevUser => {
                 if (!prevUser) return null;
+                const roleFromProfile = refreshedProfile.account_type || prevUser.role || 'user';
                 return {
                   ...prevUser,
-                  role: refreshedProfile.account_type || prevUser.role || 'user',
+                  role: validateRole(roleFromProfile),
                   areaCode: refreshedProfile.area_code || prevUser.areaCode || '',
                   username: refreshedProfile.username || prevUser.username || '',
                 };
@@ -146,9 +159,10 @@ export function useAuthState() {
                 console.log("Profile created, updating user data with fresh profile");
                 setUser(prevUser => {
                   if (!prevUser) return null;
+                  const roleFromProfile = refreshedProfile.account_type || prevUser.role || 'user';
                   return {
                     ...prevUser,
-                    role: refreshedProfile.account_type || prevUser.role || 'user',
+                    role: validateRole(roleFromProfile),
                     areaCode: refreshedProfile.area_code || prevUser.areaCode || '',
                     username: refreshedProfile.username || prevUser.username || '',
                   };
@@ -160,8 +174,8 @@ export function useAuthState() {
             }, 1000);
           } else if (event === 'SIGNED_IN') {
             // Redirect user based on role immediately on sign in
-            const role = profileData?.account_type || session.user.user_metadata?.role || 'user';
-            redirectBasedOnRole(role);
+            const roleFromProfile = profileData?.account_type || session.user.user_metadata?.role || 'user';
+            redirectBasedOnRole(roleFromProfile);
           }
         });
       } else {
@@ -200,8 +214,9 @@ export function useAuthState() {
 
   // Redirect based on user role
   const redirectBasedOnRole = useCallback((role: string | undefined) => {
-    if (role === 'municipal' || role === 'ngo') {
-      console.log(`Redirecting ${role} user to dashboard`);
+    const validRole = validateRole(role || 'user');
+    if (validRole === 'municipal' || validRole === 'ngo') {
+      console.log(`Redirecting ${validRole} user to dashboard`);
       navigate('/municipal-dashboard');
     } else {
       console.log('Redirecting regular user to home');
