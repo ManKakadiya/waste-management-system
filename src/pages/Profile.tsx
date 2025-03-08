@@ -1,15 +1,18 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2, UserCircle, MapPin, Building, User as UserIcon } from 'lucide-react';
+import { Loader2, UserCircle, Building, User as UserIcon } from 'lucide-react';
+import { ProfileHeader } from '@/components/profile/ProfileHeader';
+import { ReadOnlyField } from '@/components/profile/ReadOnlyField';
+import { AreaCodeField } from '@/components/profile/AreaCodeField';
+import { ProfileFormButtons } from '@/components/profile/ProfileFormButtons';
+import { ProfileCardFooter } from '@/components/profile/ProfileCardFooter';
+import { isOrganizationUser } from '@/lib/auth/types';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -74,7 +77,6 @@ const Profile = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
-      queryClient.invalidateQueries({ queryKey: ['profile', user.id] }); // Invalidate twice to ensure all queries get the update
       toast({
         title: 'Profile updated',
         description: 'Your profile has been updated successfully.',
@@ -95,7 +97,7 @@ const Profile = () => {
     e.preventDefault();
     
     // Validate form data
-    if (profile?.account_type === 'municipal' || profile?.account_type === 'ngo') {
+    if (isOrganizationUser(profile?.account_type)) {
       if (!formData.areaCode.trim()) {
         toast({
           title: 'Validation Error',
@@ -130,9 +132,16 @@ const Profile = () => {
     );
   }
   
-  // Make sure we get the account type from the profile data first, falling back to user data
+  // Get account type from profile data first, falling back to user data
   const accountType = profile?.account_type || user?.role || 'user';
-  const isOrganization = accountType === 'municipal' || accountType === 'ngo';
+  const userIsOrg = isOrganizationUser(accountType);
+  
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setFormData({
+      areaCode: profile?.area_code || user?.areaCode || '',
+    });
+  };
   
   return (
     <div className="container max-w-2xl py-10 px-4">
@@ -144,161 +153,68 @@ const Profile = () => {
       </div>
       
       <Card>
-        <CardHeader className="bg-muted/30">
-          <CardTitle className="flex items-center gap-2">
-            {isOrganization ? (
-              <Building className="h-5 w-5 text-primary" />
-            ) : (
-              <UserIcon className="h-5 w-5 text-primary" />
-            )}
-            {profile?.username || user?.username || 'User'}
-          </CardTitle>
-          <CardDescription>
-            Account type: {accountType === 'municipal' 
-              ? 'Municipal Corporation' 
-              : accountType === 'ngo' 
-                ? 'NGO / Waste Management Organization' 
-                : 'Individual User'}
-          </CardDescription>
-        </CardHeader>
+        <ProfileHeader 
+          username={profile?.username || user?.username || 'User'} 
+          accountType={accountType}
+        />
         
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Username - Read-only */}
-            <div className="space-y-2">
-              <Label htmlFor="username" className="flex items-center gap-1">
-                <UserCircle className="h-4 w-4" />
-                Username
-              </Label>
-              <Input
-                id="username"
-                name="username"
-                value={profile?.username || user?.username || ''}
-                readOnly
-                disabled
-                className="bg-muted"
-              />
-              <p className="text-xs text-muted-foreground">
-                Username cannot be changed after account creation
-              </p>
-            </div>
+            <ReadOnlyField
+              id="username"
+              label="Username"
+              value={profile?.username || user?.username || ''}
+              icon={<UserCircle className="h-4 w-4" />}
+              helperText="Username cannot be changed after account creation"
+            />
             
             {/* Account Type - Read-only */}
-            <div className="space-y-2">
-              <Label htmlFor="accountType" className="flex items-center gap-1">
-                {isOrganization ? (
-                  <Building className="h-4 w-4" />
-                ) : (
-                  <UserIcon className="h-4 w-4" />
-                )}
-                Account Type
-              </Label>
-              <Input
-                id="accountType"
-                name="accountType"
-                value={accountType === 'municipal' 
-                  ? 'Municipal Corporation' 
-                  : accountType === 'ngo' 
-                    ? 'NGO / Waste Management Organization' 
-                    : 'Individual User'}
-                readOnly
-                disabled
-                className="bg-muted"
-              />
-              <p className="text-xs text-muted-foreground">
-                Account type cannot be changed
-              </p>
-            </div>
+            <ReadOnlyField
+              id="accountType"
+              label="Account Type"
+              value={accountType === 'municipal' 
+                ? 'Municipal Corporation' 
+                : accountType === 'ngo' 
+                  ? 'NGO / Waste Management Organization' 
+                  : 'Individual User'
+              }
+              icon={userIsOrg ? <Building className="h-4 w-4" /> : <UserIcon className="h-4 w-4" />}
+              helperText="Account type cannot be changed"
+            />
             
             {/* Area Code - Editable only for municipal/NGO */}
-            {isOrganization && (
-              <div className="space-y-2">
-                <Label htmlFor="areaCode" className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  Area Code
-                </Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="areaCode"
-                    name="areaCode"
-                    value={formData.areaCode}
-                    onChange={handleInputChange}
-                    readOnly={!isEditing}
-                    disabled={!isEditing || updateProfileMutation.isPending}
-                    className={!isEditing ? "bg-muted pl-10" : "pl-10"}
-                    placeholder="Enter 6-digit area code"
-                    maxLength={6}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  The area code determines which complaints you can manage
-                </p>
-              </div>
+            {userIsOrg && (
+              <AreaCodeField
+                value={formData.areaCode}
+                onChange={handleInputChange}
+                isEditing={isEditing}
+                isLoading={updateProfileMutation.isPending}
+              />
             )}
             
             {/* Email - Read-only */}
-            <div className="space-y-2">
-              <Label htmlFor="email" className="flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                Email
-              </Label>
-              <Input
-                id="email"
-                name="email"
-                value={user?.email || ''}
-                readOnly
-                disabled
-                className="bg-muted"
-              />
-              <p className="text-xs text-muted-foreground">
-                Email is managed through your account settings
-              </p>
-            </div>
+            <ReadOnlyField
+              id="email"
+              label="Email"
+              value={user?.email || ''}
+              icon={<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>}
+              helperText="Email is managed through your account settings"
+            />
             
-            {isEditing && (
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setIsEditing(false);
-                    setFormData({
-                      areaCode: profile?.area_code || user?.areaCode || '',
-                    });
-                  }}
-                  disabled={updateProfileMutation.isPending}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit"
-                  disabled={updateProfileMutation.isPending}
-                >
-                  {updateProfileMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    'Save Changes'
-                  )}
-                </Button>
-              </div>
-            )}
+            <ProfileFormButtons 
+              isEditing={isEditing} 
+              isLoading={updateProfileMutation.isPending}
+              onCancel={handleCancelEdit}
+            />
           </form>
         </CardContent>
         
-        {!isEditing && isOrganization && (
-          <CardFooter className="flex justify-end border-t p-4">
-            <Button 
-              onClick={() => setIsEditing(true)}
-              variant="outline"
-            >
-              Edit Profile
-            </Button>
-          </CardFooter>
-        )}
+        <ProfileCardFooter 
+          isEditing={isEditing} 
+          isOrganization={userIsOrg}
+          onEdit={() => setIsEditing(true)}
+        />
       </Card>
     </div>
   );
