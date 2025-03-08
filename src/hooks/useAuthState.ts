@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchUserProfile, handleProfileUpsert } from '@/lib/authHelpers';
@@ -10,7 +10,6 @@ export function useAuthState() {
   const [user, setUser] = useState<AuthUser>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
 
   // Process user data from session
@@ -22,7 +21,7 @@ export function useAuthState() {
       // Get metadata from user
       const userMetadata = session.user.user_metadata || {};
       
-      // Set user with combined data
+      // Set user with combined data, prioritizing profile data over metadata
       setUser({
         ...session.user,
         role: profileData?.account_type || userMetadata.role || 'user',
@@ -48,6 +47,7 @@ export function useAuthState() {
   const initializeAuth = useCallback(async () => {
     try {
       console.log("Initializing auth...");
+      setLoading(true);
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
@@ -111,6 +111,12 @@ export function useAuthState() {
               });
             }, 1000);
           }
+          
+          // Redirect user based on role when sign in completes
+          if (event === 'SIGNED_IN') {
+            const role = profileData?.account_type || session.user.user_metadata?.role || 'user';
+            redirectBasedOnRole(role);
+          }
         });
       } else {
         setUser(null);
@@ -119,13 +125,12 @@ export function useAuthState() {
       setLoading(false);
 
       if (event === 'SIGNED_IN') {
-        console.log("User signed in, redirecting to home");
+        console.log("User signed in");
         toast({
           title: "Welcome back!",
           description: "You have successfully signed in.",
           variant: "success",
         });
-        navigate('/');
       }
       
       if (event === 'SIGNED_OUT') {
@@ -137,7 +142,7 @@ export function useAuthState() {
         });
         
         // Redirect to auth page unless already there
-        if (location.pathname !== '/auth') {
+        if (window.location.pathname !== '/auth') {
           navigate('/auth');
         }
       }
@@ -145,36 +150,67 @@ export function useAuthState() {
       console.error("Auth state change error:", error);
       setLoading(false);
     }
-  }, [processUserData, navigate, toast, location.pathname]);
+  }, [processUserData, navigate, toast]);
 
-  // Route protection for municipal dashboard
-  const protectMunicipalRoute = useCallback(() => {
-    if (!loading && location.pathname === '/municipal-dashboard') {
-      if (!user) {
-        console.log("No user for municipal dashboard, redirecting to auth");
+  // Redirect based on user role
+  const redirectBasedOnRole = useCallback((role: string | undefined) => {
+    if (role === 'municipal' || role === 'ngo') {
+      console.log(`Redirecting ${role} user to dashboard`);
+      navigate('/municipal-dashboard');
+    } else {
+      console.log('Redirecting regular user to home');
+      navigate('/');
+    }
+  }, [navigate]);
+
+  // Unified route protection
+  const protectRoutes = useCallback((pathname: string) => {
+    if (!user) {
+      // If not logged in, only allow access to public routes
+      if (['/report', '/track', '/municipal-dashboard', '/profile'].includes(pathname)) {
+        console.log("Auth required, redirecting to auth page");
         navigate('/auth');
         toast({
           title: "Authentication required",
-          description: "Please sign in to access the dashboard.",
-          variant: "destructive"
-        });
-      } else if (user.role !== 'municipal' && user.role !== 'ngo') {
-        console.log("User role not authorized for municipal dashboard:", user.role);
-        navigate('/');
-        toast({
-          title: "Access denied",
-          description: "Only municipal or NGO accounts can access this dashboard.",
+          description: "Please sign in to access this page.",
           variant: "destructive"
         });
       }
+      return;
     }
-  }, [user, loading, navigate, location.pathname, toast]);
+    
+    const isMunicipalOrNGO = user.role === 'municipal' || user.role === 'ngo';
+    
+    // Protect municipal dashboard from regular users
+    if (!isMunicipalOrNGO && pathname === '/municipal-dashboard') {
+      console.log("Regular user tried to access municipal dashboard");
+      navigate('/');
+      toast({
+        title: "Access denied",
+        description: "Only municipal or NGO accounts can access this dashboard.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Redirect municipal/NGO users from user-specific pages
+    if (isMunicipalOrNGO && (pathname === '/report' || pathname === '/track')) {
+      console.log("Municipal/NGO tried to access user page");
+      navigate('/municipal-dashboard');
+      toast({
+        title: "Access restricted",
+        description: "Please use the dashboard for your account type.",
+        variant: "destructive"
+      });
+      return;
+    }
+  }, [user, navigate, toast]);
 
   return {
     user,
     loading,
     initializeAuth,
     handleAuthChanges,
-    protectMunicipalRoute
+    protectRoutes
   };
 }

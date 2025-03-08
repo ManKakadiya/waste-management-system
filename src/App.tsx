@@ -14,6 +14,7 @@ import Auth from "./pages/Auth";
 import RecyclingGuide from "./pages/RecyclingGuide";
 import NotFound from "./pages/NotFound";
 import MunicipalDashboard from "./pages/MunicipalDashboard";
+import Profile from "./pages/Profile";
 
 // Initialize storage buckets
 import "@/integrations/supabase/storage";
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/guide" element={<RecyclingGuide />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/municipal-dashboard" element={<MunicipalDashboard />} />
+            <Route path="/profile" element={<Profile />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthWrapper>

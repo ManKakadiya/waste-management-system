@@ -1,17 +1,17 @@
 
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, ClipboardList, Info, Recycle, BookOpen, LogIn, LogOut, User, Building, LayoutDashboard, MapPinned } from "lucide-react";
+import { Home, ClipboardList, Info, Recycle, BookOpen, LogIn, LogOut, User, Building, LayoutDashboard, MapPinned, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
 const Navigation = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const isMobile = useIsMobile();
   
   const { data: profile } = useQuery({
@@ -45,32 +45,30 @@ const Navigation = () => {
     enabled: !!user?.id,
   });
 
-  const isMunicipalOrNGO = profile?.role === 'municipal' || profile?.role === 'ngo' || 
-                          user?.role === 'municipal' || user?.role === 'ngo';
-
-  // Redirect municipal/NGO users automatically if they're on regular user pages
-  useEffect(() => {
-    if (isMunicipalOrNGO && user) {
-      const currentPath = location.pathname;
-      if (currentPath === '/report' || currentPath === '/track') {
-        navigate('/municipal-dashboard');
-      }
-    }
-  }, [isMunicipalOrNGO, location.pathname, navigate, user]);
+  const isMunicipalOrNGO = useMemo(() => {
+    // Get role from profile if available, otherwise from user object
+    const role = profile?.role || user?.role;
+    return role === 'municipal' || role === 'ngo';
+  }, [profile?.role, user?.role]);
 
   // Define links based on user role
-  const getLinks = () => {
+  const links = useMemo(() => {
     const baseLinks = [
       { path: "/", label: "Home", icon: Home },
       { path: "/about", label: "About", icon: Info },
       { path: "/guide", label: "Guide", icon: BookOpen },
     ];
     
+    if (!user) {
+      return baseLinks;
+    }
+    
     if (isMunicipalOrNGO) {
       // For municipal/NGO users
       return [
         ...baseLinks,
         { path: "/municipal-dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { path: "/profile", label: "Profile", icon: UserCircle },
       ];
     } else {
       // For regular users
@@ -78,11 +76,10 @@ const Navigation = () => {
         ...baseLinks,
         { path: "/report", label: "Report", icon: ClipboardList },
         { path: "/track", label: "Track", icon: Recycle },
+        { path: "/profile", label: "Profile", icon: UserCircle },
       ];
     }
-  };
-
-  const links = getLinks();
+  }, [user, isMunicipalOrNGO]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();

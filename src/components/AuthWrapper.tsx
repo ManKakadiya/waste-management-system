@@ -1,5 +1,5 @@
 
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { AuthContext } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthState } from '@/hooks/useAuthState';
@@ -11,7 +11,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     loading, 
     initializeAuth, 
     handleAuthChanges, 
-    protectMunicipalRoute 
+    protectRoutes 
   } = useAuthState();
 
   const navigate = useNavigate();
@@ -28,29 +28,12 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, [handleAuthChanges]);
 
-  // Protect municipal dashboard route
+  // Protect routes based on user role
   useEffect(() => {
-    protectMunicipalRoute();
-  }, [protectMunicipalRoute]);
-
-  // Handle role-based redirects when auth state changes
-  useEffect(() => {
-    if (user && !loading) {
-      const isMunicipalOrNGO = user.role === 'municipal' || user.role === 'ngo';
-      
-      // If municipal/NGO user is trying to access user-specific pages
-      if (isMunicipalOrNGO && (location.pathname === '/report' || location.pathname === '/track')) {
-        console.log('Redirecting municipal/NGO user to dashboard from restricted page');
-        navigate('/municipal-dashboard');
-      }
-      
-      // If regular user is trying to access municipal dashboard
-      if (!isMunicipalOrNGO && location.pathname === '/municipal-dashboard') {
-        console.log('Redirecting regular user from municipal dashboard to home');
-        navigate('/');
-      }
+    if (!loading) {
+      protectRoutes(location.pathname);
     }
-  }, [user, loading, location.pathname, navigate]);
+  }, [protectRoutes, loading, location.pathname]);
 
   return (
     <AuthContext.Provider value={{ user, loading }}>
