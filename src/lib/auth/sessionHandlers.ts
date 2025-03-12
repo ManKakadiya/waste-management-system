@@ -33,7 +33,7 @@ export const useSessionHandlers = (
       if (session?.user) {
         console.log("Session found, user:", session.user.id);
         
-        // Process user data from session
+        // Process user data from session - always get fresh profile data
         const { user, profileData } = await processUserSession(session);
         setUser(user);
         
@@ -43,22 +43,23 @@ export const useSessionHandlers = (
           
           if (refreshedProfile) {
             // Update user with refreshed profile data
-            const roleFromProfile = refreshedProfile.account_type || user.role || 'user';
+            const roleFromProfile = refreshedProfile.account_type;
             setUser(prevUser => {
               if (!prevUser) return null;
               return {
                 ...prevUser,
-                role: validateRole(roleFromProfile),
+                role: validateRole(roleFromProfile || prevUser.role || 'user'),
                 areaCode: refreshedProfile.area_code || prevUser.areaCode || '',
                 username: refreshedProfile.username || prevUser.username || '',
               };
             });
             
-            // Redirect based on refreshed role
+            // Redirect based on refreshed role - always use account_type from database
             redirectBasedOnRole(refreshedProfile.account_type);
           }
         } else {
-          // Already have profile, redirect based on role
+          // We have profile data, redirect based on role from the database
+          // This fixes the inconsistent redirection
           redirectBasedOnRole(profileData.account_type);
         }
       } else {
@@ -80,7 +81,7 @@ export const useSessionHandlers = (
       if (session?.user) {
         console.log("User authenticated:", session.user.id);
         
-        // Process user data from session
+        // Process user data from session - always get fresh profile data
         processUserSession(session).then(async ({ user, profileData }) => {
           setUser(user);
           
@@ -90,24 +91,24 @@ export const useSessionHandlers = (
             
             if (refreshedProfile) {
               // Update user with refreshed profile
-              const roleFromProfile = refreshedProfile.account_type || user.role || 'user';
+              const roleFromProfile = refreshedProfile.account_type;
               setUser(prevUser => {
                 if (!prevUser) return null;
                 return {
                   ...prevUser,
-                  role: validateRole(roleFromProfile),
+                  role: validateRole(roleFromProfile || prevUser.role || 'user'),
                   areaCode: refreshedProfile.area_code || prevUser.areaCode || '',
                   username: refreshedProfile.username || prevUser.username || '',
                 };
               });
               
-              // Redirect based on role
+              // Redirect based on database role
               redirectBasedOnRole(refreshedProfile.account_type);
             }
           } else if (event === 'SIGNED_IN') {
-            // Redirect user based on role immediately on sign in
-            const roleFromProfile = profileData?.account_type || session.user.user_metadata?.role || 'user';
-            redirectBasedOnRole(roleFromProfile);
+            // Redirect user based on role from database immediately on sign in
+            // Critical fix for consistent redirection
+            redirectBasedOnRole(profileData?.account_type);
           }
         });
       } else {

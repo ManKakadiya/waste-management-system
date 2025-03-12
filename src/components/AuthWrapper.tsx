@@ -1,5 +1,5 @@
 
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { AuthContext } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthState } from '@/hooks/useAuthState';
@@ -40,13 +40,13 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     }
   }, [protectRoutes, loading, location.pathname, user?.role]);
 
-  // Update protection on route changes, but less aggressively
+  // Update protection on route changes, but only after initial protection is done
   useEffect(() => {
     if (!loading && initialProtectionDone.current) {
       console.log("Route changed, checking protection for:", location.pathname);
       protectRoutes(location.pathname);
     }
-  }, [location.pathname]);
+  }, [location.pathname, protectRoutes, loading]);
 
   return (
     <AuthContext.Provider value={{ user, loading }}>

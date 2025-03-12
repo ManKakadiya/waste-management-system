@@ -23,6 +23,7 @@ const MunicipalDashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
+  // Strict role check on component mount
   useEffect(() => {
     // Check if user is authorized (municipal or NGO)
     if (!user) {
@@ -30,7 +31,9 @@ const MunicipalDashboard = () => {
       return;
     }
     
+    // Always use the role from the user object which comes from the database
     if (user.role !== 'municipal' && user.role !== 'ngo') {
+      console.log("Access denied: User role", user.role, "tried to access municipal dashboard");
       navigate('/');
       toast({
         title: "Access restricted",
@@ -53,6 +56,15 @@ const MunicipalDashboard = () => {
         .single();
       
       if (error) throw error;
+      
+      // Double-check role consistency
+      if (data && (data.account_type !== user.role)) {
+        console.warn("Role mismatch detected:", {
+          userRole: user.role,
+          profileRole: data.account_type
+        });
+      }
+      
       return data;
     },
     enabled: !!user?.id,
@@ -84,6 +96,7 @@ const MunicipalDashboard = () => {
     return searchMatch;
   });
 
+  // Always use account_type from the profile (database) for consistency
   const roleTitle = profile?.account_type === 'ngo' ? 'NGO Waste Management Dashboard' : 'Municipal Waste Management Dashboard';
 
   return (

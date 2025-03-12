@@ -7,7 +7,7 @@ export const processUserSession = async (session: any) => {
   try {
     console.log("Processing user data for:", session.user.id);
     
-    // Fetch user profile data - critical for role detection
+    // Always fetch fresh profile data from the database - critical for role detection
     const profileData = await fetchUserProfile(session.user.id);
     
     // Get metadata from user
@@ -16,9 +16,10 @@ export const processUserSession = async (session: any) => {
     console.log("Profile data:", profileData);
     console.log("User metadata:", userMetadata);
     
-    // Determine the role - prioritize profile data over metadata
-    const roleFromProfile = profileData?.account_type || userMetadata.role || 'user';
-    const validatedRole = validateRole(roleFromProfile);
+    // IMPORTANT: Always prioritize profile data over metadata
+    // This fixes the role inconsistency issues
+    const roleFromProfile = profileData?.account_type;
+    const validatedRole = validateRole(roleFromProfile || userMetadata.role || 'user');
     
     console.log("Determined role:", validatedRole);
     

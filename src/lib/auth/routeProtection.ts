@@ -11,6 +11,7 @@ export const useRouteProtection = () => {
   // Redirect based on user role - only for initial login
   const redirectBasedOnRole = (role: string | undefined) => {
     const validRole = validateRole(role || 'user');
+    console.log("Redirecting based on role:", validRole);
     
     // Avoid redirecting if already on a suitable page
     const pathname = window.location.pathname;
@@ -42,8 +43,10 @@ export const useRouteProtection = () => {
       return;
     }
     
-    const isMunicipalOrNGO = user.role === 'municipal' || user.role === 'ngo';
-    console.log("Route protection - User role:", user.role, "Is Municipal/NGO:", isMunicipalOrNGO);
+    // Always determine role from user object, which gets it from profile
+    const userRole = user.role || 'user';
+    const isMunicipalOrNGO = userRole === 'municipal' || userRole === 'ngo';
+    console.log("Route protection - User role:", userRole, "Is Municipal/NGO:", isMunicipalOrNGO);
     
     // Protect municipal dashboard from regular users
     if (!isMunicipalOrNGO && pathname === '/municipal-dashboard') {
