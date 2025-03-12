@@ -13,7 +13,7 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
 
   // Fetch complaints based on area code
-  const { data: complaints = [], isLoading } = useQuery({
+  const { data: complaints = [], isLoading, error: complaintsError } = useQuery({
     queryKey: ['complaints', areaCode, statusFilter],
     queryFn: async () => {
       if (!areaCode) {
@@ -23,26 +23,32 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
       
       console.log("Fetching complaints for area code:", areaCode);
       
-      let query = supabase
-        .from('complaints')
-        .select('*')
-        .eq('pincode', areaCode);
-      
-      if (statusFilter) {
-        query = query.eq('status', statusFilter);
-      }
-      
-      const { data, error } = await query.order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error("Error fetching complaints:", error);
+      try {
+        let query = supabase
+          .from('complaints')
+          .select('*')
+          .eq('pincode', areaCode);
+        
+        if (statusFilter) {
+          query = query.eq('status', statusFilter);
+        }
+        
+        const { data, error } = await query.order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error("Error fetching complaints:", error);
+          throw error;
+        }
+        
+        console.log("Fetched complaints:", data?.length || 0);
+        return data || [];
+      } catch (error) {
+        console.error("Exception in complaint fetch:", error);
         throw error;
       }
-      
-      console.log("Fetched complaints:", data?.length || 0);
-      return data || [];
     },
     enabled: !!areaCode,
+    retry: 2,
   });
 
   // Update complaint status mutation
@@ -143,6 +149,7 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
   return {
     complaints,
     isLoading,
+    complaintsError,
     selectedComplaint,
     setSelectedComplaint,
     dialogOpen,

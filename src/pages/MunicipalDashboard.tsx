@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 // Import refactored components
 import DashboardLayout from "@/components/municipal/DashboardLayout";
@@ -15,6 +16,7 @@ import ComplaintDetailsDialog from "@/components/municipal/ComplaintDetailsDialo
 import ComplaintStatusDialog from "@/components/municipal/ComplaintStatusDialog";
 import ComplaintListState from "@/components/municipal/ComplaintListState";
 import { useComplaints } from "@/hooks/useComplaints";
+import { Card } from "@/components/ui/card";
 
 const MunicipalDashboard = () => {
   const { user } = useAuth();
@@ -22,6 +24,9 @@ const MunicipalDashboard = () => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+
+  // Use the user profile hook for consistent role and area code
+  const { profile } = useUserProfile(user);
 
   // Strict role check on component mount
   useEffect(() => {
@@ -44,50 +49,37 @@ const MunicipalDashboard = () => {
     }
   }, [user, navigate, toast]);
 
-  // Fetch profile to get area code
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ['profile', user?.id],
-    queryFn: async () => {
-      if (!user?.id) {
-        console.log("No user ID available for profile fetch");
-        return null;
-      }
-      
-      console.log("Fetching profile for user:", user.id);
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('area_code, account_type, username')
-        .eq('id', user.id)
-        .single();
-      
-      if (error) {
-        console.error("Error fetching profile:", error);
-        throw error;
-      }
-      
-      console.log("Profile fetched successfully:", data);
-      
-      // Double-check role consistency
-      if (data && (data.account_type !== user.role)) {
-        console.warn("Role mismatch detected:", {
-          userRole: user.role,
-          profileRole: data.account_type
-        });
-      }
-      
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
+  // Ensure we have a valid area code from either profile or user object
   const areaCode = profile?.area_code || user?.areaCode;
   console.log("Using area code for complaints:", areaCode);
+  
+  // If no area code is available, show an error message
+  if (!areaCode && user) {
+    console.log("No area code found for user:", user.id);
+    return (
+      <DashboardLayout title="Municipal Waste Management Dashboard">
+        <Card className="p-8 text-center">
+          <h3 className="text-xl font-bold mb-2">Missing Area Code</h3>
+          <p className="text-gray-500 mb-4">
+            Your account doesn't have an area code assigned. Please update your profile
+            or contact the administrator.
+          </p>
+          <button 
+            className="bg-primary text-white px-4 py-2 rounded"
+            onClick={() => navigate('/profile')}
+          >
+            Update Profile
+          </button>
+        </Card>
+      </DashboardLayout>
+    );
+  }
 
   // Use the custom hook for complaint management
   const {
     complaints,
-    isLoading: complaintsLoading,
+    isLoading,
+    complaintsError,
     selectedComplaint,
     setSelectedComplaint,
     dialogOpen,
@@ -98,8 +90,29 @@ const MunicipalDashboard = () => {
     updateComplaintMutation
   } = useComplaints(areaCode, statusFilter);
 
+  // Handle API errors
+  if (complaintsError) {
+    console.error("Error fetching complaints:", complaintsError);
+    return (
+      <DashboardLayout title="Municipal Waste Management Dashboard">
+        <Card className="p-8 text-center">
+          <h3 className="text-xl font-bold mb-2">Error Loading Complaints</h3>
+          <p className="text-gray-500">
+            There was a problem loading complaints. Please try again later or contact support.
+          </p>
+          <button 
+            className="bg-primary text-white px-4 py-2 rounded mt-4"
+            onClick={() => window.location.reload()}
+          >
+            Try Again
+          </button>
+        </Card>
+      </DashboardLayout>
+    );
+  }
+
   // Filter complaints based on search query
-  const filteredComplaints = complaints.filter((complaint) => {
+  const filteredComplaints = Array.isArray(complaints) ? complaints.filter((complaint) => {
     if (!complaint) return false;
     
     const searchMatch = 
@@ -110,12 +123,10 @@ const MunicipalDashboard = () => {
       (complaint.pincode?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
     
     return searchMatch;
-  });
-
-  const isLoading = profileLoading || complaintsLoading;
+  }) : [];
 
   // Always use account_type from the profile (database) for consistency
-  const roleTitle = profile?.account_type === 'ngo' ? 'NGO Waste Management Dashboard' : 'Municipal Waste Management Dashboard';
+  const roleTitle = profile?.role === 'ngo' ? 'NGO Waste Management Dashboard' : 'Municipal Waste Management Dashboard';
 
   return (
     <DashboardLayout 
@@ -123,7 +134,7 @@ const MunicipalDashboard = () => {
       subtitle={areaCode && (
         <div className="flex items-center mt-2 text-sm font-medium text-primary">
           <Building className="w-4 h-4 mr-1" />
-          Managing Area: {areaCode} - {profile?.account_type === 'municipal' ? 'Municipal Corporation' : 'NGO'}
+          Managing Area: {areaCode} - {profile?.role === 'municipal' ? 'Municipal Corporation' : 'NGO'}
         </div>
       )}
     >
@@ -138,7 +149,7 @@ const MunicipalDashboard = () => {
       {/* Loading and Empty States */}
       <ComplaintListState 
         isLoading={isLoading}
-        isEmpty={filteredComplaints.length === 0}
+        isEmpty={!isLoading && filteredComplaints.length === 0}
         areaCode={areaCode}
       />
 

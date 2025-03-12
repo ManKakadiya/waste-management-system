@@ -4,19 +4,32 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMemo } from "react";
 
 export const useUserProfile = (user: any) => {
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading, error } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
-      if (!user?.id) return null;
+      if (!user?.id) {
+        console.log("Cannot fetch profile: No user ID");
+        return null;
+      }
       
       try {
+        console.log("Fetching profile for user ID:", user.id);
         const { data, error } = await supabase
           .from('profiles')
           .select('username, account_type, area_code')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error fetching profile:", error);
+          throw error;
+        }
+        
+        if (!data) {
+          console.log("No profile found for user:", user.id);
+        } else {
+          console.log("Profile fetched successfully:", data);
+        }
         
         return {
           username: data?.username || user.username || 'User',
@@ -24,7 +37,7 @@ export const useUserProfile = (user: any) => {
           area_code: data?.area_code || user.areaCode || '',
         };
       } catch (error) {
-        console.error("Error fetching profile:", error);
+        console.error("Exception in profile fetch:", error);
         return {
           username: user.username || 'User',
           role: user.role || 'user',
@@ -33,6 +46,8 @@ export const useUserProfile = (user: any) => {
       }
     },
     enabled: !!user?.id,
+    retry: 2,
+    staleTime: 60000, // Cache for 1 minute
   });
 
   const isMunicipalOrNGO = useMemo(() => {
@@ -41,5 +56,5 @@ export const useUserProfile = (user: any) => {
     return role === 'municipal' || role === 'ngo';
   }, [profile?.role, user?.role]);
 
-  return { profile, isMunicipalOrNGO };
+  return { profile, isMunicipalOrNGO, isLoading, error };
 };
