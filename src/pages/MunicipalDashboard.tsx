@@ -36,8 +36,8 @@ const MunicipalDashboard = () => {
       return;
     }
     
-    // Always use the role from the user object which comes from the database
-    const userRole = user.user_metadata?.role || profile?.role;
+    // Always use the role from the profile which comes from the database
+    const userRole = profile?.role;
     if (userRole !== 'municipal' && userRole !== 'ngo') {
       console.log("Access denied: User role", userRole, "tried to access municipal dashboard");
       navigate('/');
@@ -49,8 +49,8 @@ const MunicipalDashboard = () => {
     }
   }, [user, profile, navigate, toast]);
 
-  // Ensure we have a valid area code from either profile or user object
-  const areaCode = profile?.area_code || user?.user_metadata?.areaCode;
+  // Ensure we have a valid area code from the profile
+  const areaCode = profile?.area_code;
   console.log("Using area code for complaints:", areaCode);
   
   // If no area code is available, show an error message

@@ -27,27 +27,27 @@ export const useUserProfile = (user: any) => {
         
         if (!data) {
           console.log("No profile found for user:", user.id);
-          // Fallback to user metadata if no profile in database
+          // Return a default profile with role and area code from user object if available
           return {
-            username: user.user_metadata?.username || 'User',
-            role: user.user_metadata?.role || 'user',
-            area_code: user.user_metadata?.areaCode || '',
+            username: user.username || 'User',
+            role: user.role || 'user',
+            area_code: user.areaCode || '',
           };
         } else {
           console.log("Profile fetched successfully:", data);
           return {
-            username: data?.username || user.user_metadata?.username || 'User',
-            role: data?.account_type || user.user_metadata?.role || 'user',
-            area_code: data?.area_code || user.user_metadata?.areaCode || '',
+            username: data?.username || 'User',
+            role: data?.account_type || 'user',
+            area_code: data?.area_code || '',
           };
         }
       } catch (error) {
         console.error("Exception in profile fetch:", error);
-        // Fallback to user metadata on error
+        // Fallback to user object on error
         return {
-          username: user?.user_metadata?.username || 'User',
-          role: user?.user_metadata?.role || 'user',
-          area_code: user?.user_metadata?.areaCode || '',
+          username: user?.username || 'User',
+          role: user?.role || 'user',
+          area_code: user?.areaCode || '',
         };
       }
     },
@@ -58,9 +58,9 @@ export const useUserProfile = (user: any) => {
 
   const isMunicipalOrNGO = useMemo(() => {
     // Get role from profile if available, otherwise from user object
-    const role = profile?.role || user?.user_metadata?.role;
+    const role = profile?.role || user?.role;
     return role === 'municipal' || role === 'ngo';
-  }, [profile?.role, user?.user_metadata?.role]);
+  }, [profile?.role, user?.role]);
 
   return { profile, isMunicipalOrNGO, isLoading, error };
 };
