@@ -27,6 +27,7 @@ const MunicipalDashboard = () => {
   useEffect(() => {
     // Check if user is authorized (municipal or NGO)
     if (!user) {
+      console.log("No user found, redirecting to auth page");
       navigate('/auth');
       return;
     }
@@ -44,10 +45,15 @@ const MunicipalDashboard = () => {
   }, [user, navigate, toast]);
 
   // Fetch profile to get area code
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
-      if (!user?.id) return null;
+      if (!user?.id) {
+        console.log("No user ID available for profile fetch");
+        return null;
+      }
+      
+      console.log("Fetching profile for user:", user.id);
       
       const { data, error } = await supabase
         .from('profiles')
@@ -55,7 +61,12 @@ const MunicipalDashboard = () => {
         .eq('id', user.id)
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching profile:", error);
+        throw error;
+      }
+      
+      console.log("Profile fetched successfully:", data);
       
       // Double-check role consistency
       if (data && (data.account_type !== user.role)) {
@@ -70,10 +81,13 @@ const MunicipalDashboard = () => {
     enabled: !!user?.id,
   });
 
+  const areaCode = profile?.area_code || user?.areaCode;
+  console.log("Using area code for complaints:", areaCode);
+
   // Use the custom hook for complaint management
   const {
     complaints,
-    isLoading,
+    isLoading: complaintsLoading,
     selectedComplaint,
     setSelectedComplaint,
     dialogOpen,
@@ -82,19 +96,23 @@ const MunicipalDashboard = () => {
     setStatusDialogOpen,
     handleStatusChange,
     updateComplaintMutation
-  } = useComplaints(profile?.area_code, statusFilter);
+  } = useComplaints(areaCode, statusFilter);
 
   // Filter complaints based on search query
   const filteredComplaints = complaints.filter((complaint) => {
+    if (!complaint) return false;
+    
     const searchMatch = 
-      complaint.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      complaint.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      complaint.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      complaint.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      complaint.pincode.toLowerCase().includes(searchQuery.toLowerCase());
+      (complaint.title?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
+      (complaint.description?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
+      (complaint.location?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
+      (complaint.id?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
+      (complaint.pincode?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
     
     return searchMatch;
   });
+
+  const isLoading = profileLoading || complaintsLoading;
 
   // Always use account_type from the profile (database) for consistency
   const roleTitle = profile?.account_type === 'ngo' ? 'NGO Waste Management Dashboard' : 'Municipal Waste Management Dashboard';
@@ -102,10 +120,10 @@ const MunicipalDashboard = () => {
   return (
     <DashboardLayout 
       title={roleTitle}
-      subtitle={profile?.area_code && (
+      subtitle={areaCode && (
         <div className="flex items-center mt-2 text-sm font-medium text-primary">
           <Building className="w-4 h-4 mr-1" />
-          Managing Area: {profile.area_code} - {profile?.account_type === 'municipal' ? 'Municipal Corporation' : 'NGO'}
+          Managing Area: {areaCode} - {profile?.account_type === 'municipal' ? 'Municipal Corporation' : 'NGO'}
         </div>
       )}
     >
@@ -121,7 +139,7 @@ const MunicipalDashboard = () => {
       <ComplaintListState 
         isLoading={isLoading}
         isEmpty={filteredComplaints.length === 0}
-        areaCode={profile?.area_code}
+        areaCode={areaCode}
       />
 
       {/* Complaint Cards */}

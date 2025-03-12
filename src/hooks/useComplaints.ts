@@ -16,7 +16,12 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
   const { data: complaints = [], isLoading } = useQuery({
     queryKey: ['complaints', areaCode, statusFilter],
     queryFn: async () => {
-      if (!areaCode) return [];
+      if (!areaCode) {
+        console.log("No area code provided, cannot fetch complaints");
+        return [];
+      }
+      
+      console.log("Fetching complaints for area code:", areaCode);
       
       let query = supabase
         .from('complaints')
@@ -29,7 +34,12 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
       
       const { data, error } = await query.order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching complaints:", error);
+        throw error;
+      }
+      
+      console.log("Fetched complaints:", data?.length || 0);
       return data || [];
     },
     enabled: !!areaCode,
