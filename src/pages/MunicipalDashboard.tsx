@@ -4,8 +4,6 @@ import { Building } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
 // Import refactored components
@@ -15,8 +13,9 @@ import ComplaintCard from "@/components/municipal/ComplaintCard";
 import ComplaintDetailsDialog from "@/components/municipal/ComplaintDetailsDialog";
 import ComplaintStatusDialog from "@/components/municipal/ComplaintStatusDialog";
 import ComplaintListState from "@/components/municipal/ComplaintListState";
+import AreaCodeMissing from "@/components/municipal/AreaCodeMissing";
+import DashboardError from "@/components/municipal/DashboardError";
 import { useComplaints } from "@/hooks/useComplaints";
-import { Card } from "@/components/ui/card";
 
 const MunicipalDashboard = () => {
   const { user } = useAuth();
@@ -26,7 +25,7 @@ const MunicipalDashboard = () => {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   // Use the user profile hook for consistent role and area code
-  const { profile } = useUserProfile(user);
+  const { profile, isLoading: profileLoading } = useUserProfile(user);
 
   // Strict role check on component mount
   useEffect(() => {
@@ -38,8 +37,9 @@ const MunicipalDashboard = () => {
     }
     
     // Always use the role from the user object which comes from the database
-    if (user.role !== 'municipal' && user.role !== 'ngo') {
-      console.log("Access denied: User role", user.role, "tried to access municipal dashboard");
+    const userRole = user.user_metadata?.role || profile?.role;
+    if (userRole !== 'municipal' && userRole !== 'ngo') {
+      console.log("Access denied: User role", userRole, "tried to access municipal dashboard");
       navigate('/');
       toast({
         title: "Access restricted",
@@ -47,30 +47,18 @@ const MunicipalDashboard = () => {
         variant: "destructive"
       });
     }
-  }, [user, navigate, toast]);
+  }, [user, profile, navigate, toast]);
 
   // Ensure we have a valid area code from either profile or user object
-  const areaCode = profile?.area_code || user?.areaCode;
+  const areaCode = profile?.area_code || user?.user_metadata?.areaCode;
   console.log("Using area code for complaints:", areaCode);
   
   // If no area code is available, show an error message
-  if (!areaCode && user) {
+  if (!profileLoading && !areaCode && user) {
     console.log("No area code found for user:", user.id);
     return (
       <DashboardLayout title="Municipal Waste Management Dashboard">
-        <Card className="p-8 text-center">
-          <h3 className="text-xl font-bold mb-2">Missing Area Code</h3>
-          <p className="text-gray-500 mb-4">
-            Your account doesn't have an area code assigned. Please update your profile
-            or contact the administrator.
-          </p>
-          <button 
-            className="bg-primary text-white px-4 py-2 rounded"
-            onClick={() => navigate('/profile')}
-          >
-            Update Profile
-          </button>
-        </Card>
+        <AreaCodeMissing />
       </DashboardLayout>
     );
   }
@@ -87,7 +75,8 @@ const MunicipalDashboard = () => {
     statusDialogOpen,
     setStatusDialogOpen,
     handleStatusChange,
-    updateComplaintMutation
+    updateComplaintMutation,
+    refetch
   } = useComplaints(areaCode, statusFilter);
 
   // Handle API errors
@@ -95,18 +84,7 @@ const MunicipalDashboard = () => {
     console.error("Error fetching complaints:", complaintsError);
     return (
       <DashboardLayout title="Municipal Waste Management Dashboard">
-        <Card className="p-8 text-center">
-          <h3 className="text-xl font-bold mb-2">Error Loading Complaints</h3>
-          <p className="text-gray-500">
-            There was a problem loading complaints. Please try again later or contact support.
-          </p>
-          <button 
-            className="bg-primary text-white px-4 py-2 rounded mt-4"
-            onClick={() => window.location.reload()}
-          >
-            Try Again
-          </button>
-        </Card>
+        <DashboardError error={complaintsError} />
       </DashboardLayout>
     );
   }
@@ -148,13 +126,14 @@ const MunicipalDashboard = () => {
 
       {/* Loading and Empty States */}
       <ComplaintListState 
-        isLoading={isLoading}
-        isEmpty={!isLoading && filteredComplaints.length === 0}
+        isLoading={isLoading || profileLoading}
+        isEmpty={!isLoading && !profileLoading && filteredComplaints.length === 0}
         areaCode={areaCode}
+        onRefresh={refetch}
       />
 
       {/* Complaint Cards */}
-      {!isLoading && filteredComplaints.length > 0 && (
+      {!isLoading && !profileLoading && filteredComplaints.length > 0 && (
         <div className="grid gap-4">
           {filteredComplaints.map((complaint) => (
             <ComplaintCard

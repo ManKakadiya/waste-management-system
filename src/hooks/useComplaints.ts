@@ -13,7 +13,12 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
 
   // Fetch complaints based on area code
-  const { data: complaints = [], isLoading, error: complaintsError } = useQuery({
+  const { 
+    data: complaints = [], 
+    isLoading, 
+    error: complaintsError,
+    refetch
+  } = useQuery({
     queryKey: ['complaints', areaCode, statusFilter],
     queryFn: async () => {
       if (!areaCode) {
@@ -41,6 +46,10 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
         }
         
         console.log("Fetched complaints:", data?.length || 0);
+        if (data?.length === 0) {
+          console.log("No complaints found for area code:", areaCode);
+        }
+        
         return data || [];
       } catch (error) {
         console.error("Exception in complaint fetch:", error);
@@ -48,7 +57,8 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
       }
     },
     enabled: !!areaCode,
-    retry: 2,
+    retry: 3,
+    retryDelay: attempt => Math.min(attempt > 1 ? 2000 : 1000, 30 * 1000),
   });
 
   // Update complaint status mutation
@@ -157,6 +167,7 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
     statusDialogOpen,
     setStatusDialogOpen,
     handleStatusChange,
-    updateComplaintMutation
+    updateComplaintMutation,
+    refetch
   };
 };

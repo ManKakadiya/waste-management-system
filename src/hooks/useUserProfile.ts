@@ -27,34 +27,40 @@ export const useUserProfile = (user: any) => {
         
         if (!data) {
           console.log("No profile found for user:", user.id);
+          // Fallback to user metadata if no profile in database
+          return {
+            username: user.user_metadata?.username || 'User',
+            role: user.user_metadata?.role || 'user',
+            area_code: user.user_metadata?.areaCode || '',
+          };
         } else {
           console.log("Profile fetched successfully:", data);
+          return {
+            username: data?.username || user.user_metadata?.username || 'User',
+            role: data?.account_type || user.user_metadata?.role || 'user',
+            area_code: data?.area_code || user.user_metadata?.areaCode || '',
+          };
         }
-        
-        return {
-          username: data?.username || user.username || 'User',
-          role: data?.account_type || user.role || 'user',
-          area_code: data?.area_code || user.areaCode || '',
-        };
       } catch (error) {
         console.error("Exception in profile fetch:", error);
+        // Fallback to user metadata on error
         return {
-          username: user.username || 'User',
-          role: user.role || 'user',
-          area_code: user.areaCode || '',
+          username: user?.user_metadata?.username || 'User',
+          role: user?.user_metadata?.role || 'user',
+          area_code: user?.user_metadata?.areaCode || '',
         };
       }
     },
     enabled: !!user?.id,
-    retry: 2,
+    retry: 3,
     staleTime: 60000, // Cache for 1 minute
   });
 
   const isMunicipalOrNGO = useMemo(() => {
     // Get role from profile if available, otherwise from user object
-    const role = profile?.role || user?.role;
+    const role = profile?.role || user?.user_metadata?.role;
     return role === 'municipal' || role === 'ngo';
-  }, [profile?.role, user?.role]);
+  }, [profile?.role, user?.user_metadata?.role]);
 
   return { profile, isMunicipalOrNGO, isLoading, error };
 };

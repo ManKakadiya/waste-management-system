@@ -7,9 +7,10 @@ interface ComplaintListStateProps {
   isLoading: boolean;
   isEmpty: boolean;
   areaCode?: string;
+  onRefresh?: () => void;
 }
 
-const ComplaintListState = ({ isLoading, isEmpty, areaCode }: ComplaintListStateProps) => {
+const ComplaintListState = ({ isLoading, isEmpty, areaCode, onRefresh }: ComplaintListStateProps) => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -28,10 +29,17 @@ const ComplaintListState = ({ isLoading, isEmpty, areaCode }: ComplaintListState
           <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
           <h3 className="text-xl font-medium mb-2">No Complaints Found</h3>
           {areaCode ? (
-            <p className="text-gray-500 max-w-md mx-auto">
-              There are currently no waste management complaints reported in your area ({areaCode}).
-              This could mean either your area is well-maintained or residents haven't reported issues yet.
-            </p>
+            <>
+              <p className="text-gray-500 max-w-md mx-auto mb-4">
+                There are currently no waste management complaints reported in your area ({areaCode}).
+                This could mean either your area is well-maintained or residents haven't reported issues yet.
+              </p>
+              {onRefresh && (
+                <Button variant="outline" onClick={onRefresh}>
+                  Refresh
+                </Button>
+              )}
+            </>
           ) : (
             <p className="text-gray-500">
               No complaints match your search criteria. Try adjusting your filters.
