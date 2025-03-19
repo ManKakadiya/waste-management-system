@@ -22,12 +22,7 @@ export const useUserProfile = (user: any) => {
         
         if (error) {
           console.error("Error fetching profile:", error);
-          // Return fallback data instead of throwing to prevent cascading errors
-          return {
-            username: user.username || 'User',
-            role: user.role || 'user',
-            area_code: user.areaCode || '',
-          };
+          throw error;
         }
         
         if (!data) {
@@ -41,25 +36,20 @@ export const useUserProfile = (user: any) => {
         } else {
           console.log("Profile fetched successfully:", data);
           return {
-            username: data?.username || 'User',
-            role: data?.account_type || 'user',
-            area_code: data?.area_code || '',
+            username: data.username || 'User',
+            role: data.account_type || 'user',
+            area_code: data.area_code || '',
           };
         }
       } catch (error) {
         console.error("Exception in profile fetch:", error);
-        // Fallback to user object on error
-        return {
-          username: user?.username || 'User',
-          role: user?.role || 'user',
-          area_code: user?.areaCode || '',
-        };
+        throw error;
       }
     },
     enabled: !!user?.id,
-    retry: 1, // Reduce retries
-    staleTime: 60000, // Cache for 1 minute
-    gcTime: 300000, // Keep data for 5 minutes
+    retry: 2,
+    staleTime: 300000, // Cache for 5 minutes
+    gcTime: 600000, // Keep data for 10 minutes
     refetchOnWindowFocus: false, // Prevent refetching on window focus
   });
 

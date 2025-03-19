@@ -25,7 +25,7 @@ const MunicipalDashboard = () => {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   // Use the user profile hook for consistent role and area code
-  const { profile, isLoading: profileLoading } = useUserProfile(user);
+  const { profile, isLoading: profileLoading, error: profileError } = useUserProfile(user);
 
   // Strict role check on component mount
   useEffect(() => {
@@ -59,6 +59,16 @@ const MunicipalDashboard = () => {
     return (
       <DashboardLayout title="Municipal Waste Management Dashboard">
         <AreaCodeMissing />
+      </DashboardLayout>
+    );
+  }
+
+  // Handle profile errors
+  if (profileError) {
+    console.error("Error fetching profile:", profileError);
+    return (
+      <DashboardLayout title="Municipal Waste Management Dashboard">
+        <DashboardError error={profileError} />
       </DashboardLayout>
     );
   }
