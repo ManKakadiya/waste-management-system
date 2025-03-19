@@ -30,6 +30,7 @@ interface DatabaseWithTables extends Database {
           account_type?: string;
           area_code?: string | null;
         };
+        Relationships: [];
       };
       complaints: {
         Row: {
@@ -68,6 +69,7 @@ interface DatabaseWithTables extends Database {
           status?: string;
           area_code?: string | null;
         };
+        Relationships: [];
       };
     };
     Views: Database['public']['Views'];
