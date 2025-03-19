@@ -22,7 +22,12 @@ export const useUserProfile = (user: any) => {
         
         if (error) {
           console.error("Error fetching profile:", error);
-          throw error;
+          // Return fallback data instead of throwing to prevent cascading errors
+          return {
+            username: user.username || 'User',
+            role: user.role || 'user',
+            area_code: user.areaCode || '',
+          };
         }
         
         if (!data) {
@@ -52,8 +57,10 @@ export const useUserProfile = (user: any) => {
       }
     },
     enabled: !!user?.id,
-    retry: 3,
+    retry: 1, // Reduce retries
     staleTime: 60000, // Cache for 1 minute
+    gcTime: 300000, // Keep data for 5 minutes
+    refetchOnWindowFocus: false, // Prevent refetching on window focus
   });
 
   const isMunicipalOrNGO = useMemo(() => {

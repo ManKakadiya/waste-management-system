@@ -1,6 +1,10 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
+// Cache for profiles
+const profileCache = new Map();
+const CACHE_DURATION = 10000; // 10 seconds
+
 // Safely create or update user profile
 export const handleProfileUpsert = async (userId: string, userData: any) => {
   try {
@@ -31,7 +35,7 @@ export const handleProfileUpsert = async (userId: string, userData: any) => {
     
     // Try to create profile with retry on conflicts
     let retryCount = 0;
-    const maxRetries = 3;
+    const maxRetries = 2; // Reduce number of retries
     let success = false;
     
     while (retryCount < maxRetries && !success) {
@@ -61,6 +65,14 @@ export const handleProfileUpsert = async (userId: string, userData: any) => {
           if (!upsertError) {
             success = true;
             console.log(`Profile created with modified username: ${newUsername}`);
+            
+            // Update cache
+            profileCache.set(userId, {
+              username: newUsername,
+              account_type: userRole,
+              area_code: userAreaCode,
+              timestamp: Date.now()
+            });
           } else {
             console.error("Profile insert error:", upsertError);
           }
@@ -78,6 +90,14 @@ export const handleProfileUpsert = async (userId: string, userData: any) => {
           if (!upsertError) {
             success = true;
             console.log(`Profile created successfully for user: ${userId}`);
+            
+            // Update cache
+            profileCache.set(userId, {
+              username: username,
+              account_type: userRole,
+              area_code: userAreaCode,
+              timestamp: Date.now()
+            });
           } else {
             console.error("Profile insert error:", upsertError);
           }
@@ -100,9 +120,21 @@ export const handleProfileUpsert = async (userId: string, userData: any) => {
   }
 };
 
-// Fetch user profile data
+// Fetch user profile data with caching
 export const fetchUserProfile = async (userId: string) => {
+  if (!userId) {
+    console.log("No user ID provided, cannot fetch profile");
+    return null;
+  }
+  
   try {
+    // Check cache first
+    const cached = profileCache.get(userId);
+    if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+      console.log("Using cached profile for user:", userId);
+      return cached;
+    }
+    
     console.log("Fetching profile for user:", userId);
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
@@ -115,9 +147,26 @@ export const fetchUserProfile = async (userId: string) => {
       return null;
     }
     
+    if (profileData) {
+      // Update cache
+      profileCache.set(userId, {
+        ...profileData,
+        timestamp: Date.now()
+      });
+    }
+    
     return profileData;
   } catch (error) {
     console.error("Error fetching profile:", error);
     return null;
+  }
+};
+
+// Clear cache for a specific user or all users
+export const clearProfileCache = (userId?: string) => {
+  if (userId) {
+    profileCache.delete(userId);
+  } else {
+    profileCache.clear();
   }
 };

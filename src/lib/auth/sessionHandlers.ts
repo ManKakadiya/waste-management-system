@@ -7,6 +7,15 @@ import { NavigateFunction } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { validateRole } from './types';
 
+// Debounce helper
+const debounce = (fn: Function, ms = 300) => {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  return function(...args: any[]) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), ms);
+  };
+};
+
 export const useSessionHandlers = (
   setUser: any, 
   setLoading: any, 
@@ -15,8 +24,14 @@ export const useSessionHandlers = (
   const { toast } = useToast();
   const { redirectBasedOnRole } = useRouteProtection();
   
-  // Handle initial auth state
+  // Track initialization state
+  let isInitializing = false;
+  
+  // Handle initial auth state with debouncing
   const initializeAuth = useCallback(async () => {
+    if (isInitializing) return;
+    isInitializing = true;
+    
     try {
       console.log("Initializing auth...");
       setLoading(true);
@@ -27,6 +42,7 @@ export const useSessionHandlers = (
       if (sessionError) {
         console.error("Session error:", sessionError);
         setLoading(false);
+        isInitializing = false;
         return;
       }
       
@@ -70,10 +86,17 @@ export const useSessionHandlers = (
       console.error("Auth initialization error:", error);
     } finally {
       setLoading(false);
+      isInitializing = false;
     }
   }, [setUser, setLoading, redirectBasedOnRole]);
   
-  // Handle auth state changes
+  // Create debounced versions of handlers
+  const debouncedRedirect = useCallback(
+    debounce((role: string) => redirectBasedOnRole(role), 500),
+    [redirectBasedOnRole]
+  );
+  
+  // Handle auth state changes with debouncing
   const handleAuthChanges = useCallback((event: string, session: any) => {
     console.log("Auth state changed:", event);
     
@@ -102,13 +125,13 @@ export const useSessionHandlers = (
                 };
               });
               
-              // Redirect based on database role
-              redirectBasedOnRole(refreshedProfile.account_type);
+              // Redirect based on database role, but debounced
+              debouncedRedirect(refreshedProfile.account_type);
             }
           } else if (event === 'SIGNED_IN') {
             // Redirect user based on role from database immediately on sign in
-            // Critical fix for consistent redirection
-            redirectBasedOnRole(profileData?.account_type);
+            // Critical fix for consistent redirection, but debounced
+            debouncedRedirect(profileData?.account_type);
           }
         });
       } else {
@@ -144,7 +167,7 @@ export const useSessionHandlers = (
       console.error("Auth state change error:", error);
       setLoading(false);
     }
-  }, [setUser, setLoading, redirectBasedOnRole, toast, navigate]);
+  }, [setUser, setLoading, debouncedRedirect, toast, navigate]);
   
   return { initializeAuth, handleAuthChanges };
 };

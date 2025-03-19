@@ -6,6 +6,21 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://jbahnltlztuwocqlhgxv.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpiYWhubHRsenR1d29jcWxoZ3h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzOTUyMzgsImV4cCI6MjA1Nzk3MTIzOH0.sNOIRR6MW_X-n31hyidfqBrWOIP1WRoDFYCDeRHEQZ0";
 
+// Add retry mechanism for fetch operations
+const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = 3) => {
+  let retries = 0;
+  while (retries < maxRetries) {
+    try {
+      return await fetch(url, options);
+    } catch (error) {
+      retries++;
+      if (retries >= maxRetries) throw error;
+      // Exponential backoff
+      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, retries)));
+    }
+  }
+};
+
 // Define extended Database type with tables
 interface DatabaseWithTables extends Database {
   public: {
@@ -79,7 +94,18 @@ interface DatabaseWithTables extends Database {
   };
 }
 
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
-
-export const supabase = createClient<DatabaseWithTables>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+// Create client with custom fetch option for better error handling
+export const supabase = createClient<DatabaseWithTables>(
+  SUPABASE_URL, 
+  SUPABASE_PUBLISHABLE_KEY,
+  {
+    global: {
+      fetch: fetchWithRetry as any
+    },
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
+  }
+);
