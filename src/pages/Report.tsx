@@ -18,7 +18,7 @@ const Report = () => {
       toast({
         title: "Access restricted",
         description: "Municipal/NGO accounts should use the dashboard instead.",
-        variant: "default",
+        variant: "destructive",
       });
       navigate('/municipal-dashboard');
     }

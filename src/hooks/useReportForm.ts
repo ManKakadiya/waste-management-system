@@ -145,19 +145,39 @@ export const useReportForm = () => {
       let imageUrl;
       
       if (image) {
+        // First, make sure the complaints bucket exists
+        const { error: bucketError } = await supabase.storage
+          .getBucket('complaints');
+          
+        if (bucketError && bucketError.message.includes("not found")) {
+          // Create the bucket if it doesn't exist
+          const { error: createBucketError } = await supabase.storage
+            .createBucket('complaints', {
+              public: true
+            });
+            
+          if (createBucketError) {
+            console.error("Error creating bucket:", createBucketError);
+            throw new Error("Failed to create storage bucket for images");
+          }
+        }
+        
         // Remove the data URL prefix and get the base64 data
-        const file = image.split(",")[1];
+        const base64Data = image.split(',')[1];
         const fileName = `report_${Date.now()}.jpg`;
         
-        // Upload the image to Supabase Storage
+        // Upload the image to Supabase Storage with proper error handling
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('complaints')
-          .upload(fileName, Buffer.from(file, 'base64'), {
+          .upload(fileName, Buffer.from(base64Data, 'base64'), {
             contentType: 'image/jpeg',
             upsert: true
           });
           
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error("Image upload error:", uploadError);
+          throw new Error(`Failed to upload image: ${uploadError.message}`);
+        }
         
         // Get the public URL of the uploaded image
         const { data: { publicUrl } } = supabase.storage
@@ -176,11 +196,11 @@ export const useReportForm = () => {
         imageUrl
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error in submission process:", error);
       toast({
         title: "Upload Failed",
-        description: "An error occurred while uploading your report.",
+        description: error.message || "An error occurred while uploading your report.",
         variant: "destructive",
       });
       setLoading(false);

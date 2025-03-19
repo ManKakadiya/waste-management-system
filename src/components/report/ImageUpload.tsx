@@ -22,7 +22,7 @@ const ImageUpload = ({ image, onImageChange }: ImageUploadProps) => {
         />
         <label
           htmlFor="image"
-          className="flex items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary transition-colors duration-300"
+          className="flex items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary transition-colors duration-300 bg-white"
         >
           {image ? (
             <img
