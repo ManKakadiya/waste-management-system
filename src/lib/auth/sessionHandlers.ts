@@ -7,14 +7,24 @@ import { NavigateFunction } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { validateRole } from './types';
 
-// Debounce helper
-const debounce = (fn: Function, ms = 300) => {
+// Debounce helper with immediate option
+const debounce = (fn: Function, ms = 300, options = { immediate: false }) => {
   let timeoutId: ReturnType<typeof setTimeout>;
   return function(...args: any[]) {
+    const callNow = options.immediate && !timeoutId;
     clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => fn(...args), ms);
+    
+    timeoutId = setTimeout(() => {
+      timeoutId = undefined as any;
+      if (!options.immediate) fn(...args);
+    }, ms);
+    
+    if (callNow) fn(...args);
   };
 };
+
+// Cache to prevent redundant profile operations
+const operationsCache = new Map();
 
 export const useSessionHandlers = (
   setUser: any, 
@@ -36,6 +46,25 @@ export const useSessionHandlers = (
       console.log("Initializing auth...");
       setLoading(true);
       
+      // Check for cached operation
+      const cacheKey = 'auth_init';
+      if (operationsCache.has(cacheKey)) {
+        console.log("Using cached auth init");
+        const cachedData = operationsCache.get(cacheKey);
+        if (cachedData) {
+          setUser(cachedData.user);
+          setLoading(false);
+          isInitializing = false;
+          
+          // Update cache expiry
+          setTimeout(() => {
+            operationsCache.delete(cacheKey);
+          }, 10000); // Cache for 10 seconds
+          
+          return;
+        }
+      }
+      
       // Get current session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
@@ -52,6 +81,14 @@ export const useSessionHandlers = (
         // Process user data from session - always get fresh profile data
         const { user, profileData } = await processUserSession(session);
         setUser(user);
+        
+        // Cache result
+        operationsCache.set(cacheKey, { user, profileData });
+        
+        // Set expiry for cache
+        setTimeout(() => {
+          operationsCache.delete(cacheKey);
+        }, 10000); // Cache for 10 seconds
         
         // If profile doesn't exist, create it
         if (!profileData) {
@@ -92,7 +129,7 @@ export const useSessionHandlers = (
   
   // Create debounced versions of handlers
   const debouncedRedirect = useCallback(
-    debounce((role: string) => redirectBasedOnRole(role), 500),
+    debounce((role: string) => redirectBasedOnRole(role), 500, { immediate: true }),
     [redirectBasedOnRole]
   );
   
@@ -125,12 +162,12 @@ export const useSessionHandlers = (
                 };
               });
               
-              // Redirect based on database role, but debounced
+              // Redirect based on database role, but immediately on first call
               debouncedRedirect(refreshedProfile.account_type);
             }
           } else if (event === 'SIGNED_IN') {
             // Redirect user based on role from database immediately on sign in
-            // Critical fix for consistent redirection, but debounced
+            // Critical fix for consistent redirection, but with immediate first call
             debouncedRedirect(profileData?.account_type);
           }
         });

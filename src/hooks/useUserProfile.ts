@@ -43,21 +43,34 @@ export const useUserProfile = (user: any) => {
         }
       } catch (error) {
         console.error("Exception in profile fetch:", error);
-        throw error;
+        // Instead of throwing error, return fallback data to prevent UI crashes
+        return {
+          username: user?.username || 'User',
+          role: user?.role || 'user',
+          area_code: user?.areaCode || '',
+        };
       }
     },
     enabled: !!user?.id,
-    retry: 2,
-    staleTime: 300000, // Cache for 5 minutes
-    gcTime: 600000, // Keep data for 10 minutes
-    refetchOnWindowFocus: false, // Prevent refetching on window focus
+    retry: 1, // Reduce retries to prevent excessive requests
+    staleTime: 600000, // Cache for 10 minutes to reduce refetches
+    gcTime: 900000, // Keep data in cache longer
+    refetchOnWindowFocus: false,
+    refetchOnMount: false, // Prevent refetching when component remounts
   });
 
+  // Determine municipal/NGO status with fallback to avoid null errors
   const isMunicipalOrNGO = useMemo(() => {
-    // Get role from profile if available, otherwise from user object
-    const role = profile?.role || user?.role;
+    const role = profile?.role || user?.role || 'user';
     return role === 'municipal' || role === 'ngo';
   }, [profile?.role, user?.role]);
 
-  return { profile, isMunicipalOrNGO, isLoading, error };
+  return { 
+    profile, 
+    isMunicipalOrNGO, 
+    isLoading, 
+    error,
+    // Add explicit role getter to simplify role checks
+    role: profile?.role || user?.role || 'user'
+  };
 };

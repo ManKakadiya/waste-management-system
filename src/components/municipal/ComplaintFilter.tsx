@@ -35,7 +35,10 @@ const ComplaintFilter = ({
         />
       </div>
       <div className="w-full sm:w-auto">
-        <Select value={statusFilter || "all"} onValueChange={(value) => setStatusFilter(value === "all" ? null : value)}>
+        <Select 
+          value={statusFilter || "all"} 
+          onValueChange={(value) => setStatusFilter(value === "all" ? null : value)}
+        >
           <SelectTrigger className="w-full sm:w-[180px] flex gap-2">
             <Filter className="w-4 h-4" />
             <SelectValue placeholder="Filter by status" />

@@ -14,7 +14,16 @@ export const UserActions = ({ user, profile, isMunicipalOrNGO }: UserActionsProp
   const location = useLocation();
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      // Clear any session storage flags
+      sessionStorage.removeItem('access_error_shown');
+      sessionStorage.removeItem('municipal_access_denied');
+      
+      // Sign out
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
 
   if (!user) {

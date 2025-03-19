@@ -48,15 +48,26 @@ export const useRouteProtection = () => {
     const isMunicipalOrNGO = userRole === 'municipal' || userRole === 'ngo';
     console.log("Route protection - User role:", userRole, "Is Municipal/NGO:", isMunicipalOrNGO);
     
-    // Protect municipal dashboard from regular users
+    // Only show error message if actually trying to access restricted page
+    // This avoids error popup loops
     if (!isMunicipalOrNGO && pathname === '/municipal-dashboard') {
       console.log("Regular user tried to access municipal dashboard");
       navigate('/');
-      toast({
-        title: "Access denied",
-        description: "Only municipal or NGO accounts can access this dashboard.",
-        variant: "destructive"
-      });
+      
+      // Set a flag in sessionStorage to prevent showing the toast repeatedly
+      if (!sessionStorage.getItem('access_error_shown')) {
+        toast({
+          title: "Access denied",
+          description: "Only municipal or NGO accounts can access this dashboard.",
+          variant: "destructive"
+        });
+        sessionStorage.setItem('access_error_shown', 'true');
+        
+        // Clear flag after 5 seconds
+        setTimeout(() => {
+          sessionStorage.removeItem('access_error_shown');
+        }, 5000);
+      }
       return;
     }
     

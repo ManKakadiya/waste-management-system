@@ -6,14 +6,27 @@ import { validateRole } from './types';
 // Track ongoing profile operations to prevent redundant calls
 const ongoingOperations = new Map();
 
+// Cache for quick access to frequently used profiles
+const profileCache = new Map();
+
+// Timeout value for cache (10 minutes)
+const CACHE_TIMEOUT = 10 * 60 * 1000;
+
 export const processUserSession = async (session: any) => {
   try {
-    console.log("Processing user data for:", session.user.id);
+    const userId = session.user.id;
+    console.log("Processing user data for:", userId);
+    
+    // Check cache first
+    if (profileCache.has(userId)) {
+      console.log("Using cached profile data for:", userId);
+      return profileCache.get(userId);
+    }
     
     // Check if there's already an ongoing operation for this user
-    if (ongoingOperations.has(session.user.id)) {
-      console.log("Operation already in progress for user:", session.user.id);
-      const cached = ongoingOperations.get(session.user.id);
+    if (ongoingOperations.has(userId)) {
+      console.log("Operation already in progress for user:", userId);
+      const cached = ongoingOperations.get(userId);
       if (cached) return cached;
     }
     
@@ -21,7 +34,7 @@ export const processUserSession = async (session: any) => {
     const operationPromise = (async () => {
       try {
         // Always fetch fresh profile data from the database - critical for role detection
-        const profileData = await fetchUserProfile(session.user.id);
+        const profileData = await fetchUserProfile(userId);
         
         // Get metadata from user
         const userMetadata = session.user.user_metadata || {};
@@ -37,7 +50,7 @@ export const processUserSession = async (session: any) => {
         console.log("Determined role:", validatedRole);
         
         // Return processed user data
-        return {
+        const result = {
           user: {
             ...session.user,
             role: validatedRole,
@@ -46,11 +59,21 @@ export const processUserSession = async (session: any) => {
           },
           profileData
         };
+        
+        // Cache the result
+        profileCache.set(userId, result);
+        
+        // Set expiry for cache
+        setTimeout(() => {
+          profileCache.delete(userId);
+        }, CACHE_TIMEOUT);
+        
+        return result;
       } catch (error) {
         console.error("Error processing user data:", error);
         // Return fallback user data
         const roleFromMetadata = session.user.user_metadata?.role || 'user';
-        return {
+        const result = {
           user: {
             ...session.user,
             role: validateRole(roleFromMetadata),
@@ -59,16 +82,26 @@ export const processUserSession = async (session: any) => {
           },
           profileData: null
         };
+        
+        // Cache the fallback result but with a shorter timeout
+        profileCache.set(userId, result);
+        
+        // Set shorter expiry for error cache
+        setTimeout(() => {
+          profileCache.delete(userId);
+        }, 60000); // 1 minute
+        
+        return result;
       } finally {
         // Clear operation after completion (with small delay to prevent immediate re-fetch)
         setTimeout(() => {
-          ongoingOperations.delete(session.user.id);
+          ongoingOperations.delete(userId);
         }, 2000);
       }
     })();
     
     // Store the promise
-    ongoingOperations.set(session.user.id, operationPromise);
+    ongoingOperations.set(userId, operationPromise);
     
     // Return the result
     return await operationPromise;
@@ -91,8 +124,17 @@ export const processUserSession = async (session: any) => {
 // Debounce profile creation to prevent redundant calls
 let profileCreationTimers = new Map();
 
+// Cache for profile creation operations
+const profileCreationCache = new Map();
+
 export const ensureUserProfile = async (userId: string, userData: any) => {
   console.log("Ensuring profile exists for:", userId);
+  
+  // Check cache first
+  if (profileCreationCache.has(userId)) {
+    console.log("Using cached profile creation result for:", userId);
+    return profileCreationCache.get(userId);
+  }
   
   // Check if there's already a timer for this user
   if (profileCreationTimers.has(userId)) {
@@ -123,6 +165,15 @@ export const ensureUserProfile = async (userId: string, userData: any) => {
           if (success) {
             // Refresh and return user profile
             const newProfile = await fetchUserProfile(userId);
+            
+            // Cache the profile creation result
+            profileCreationCache.set(userId, newProfile);
+            
+            // Set expiry for cache
+            setTimeout(() => {
+              profileCreationCache.delete(userId);
+            }, CACHE_TIMEOUT);
+            
             resolve(newProfile);
           } else {
             resolve(null);
@@ -142,6 +193,14 @@ export const ensureUserProfile = async (userId: string, userData: any) => {
       // Wait for the profile creation to complete
       return await createProfile();
     }
+    
+    // Cache the existing profile
+    profileCreationCache.set(userId, profileData);
+    
+    // Set expiry for cache
+    setTimeout(() => {
+      profileCreationCache.delete(userId);
+    }, CACHE_TIMEOUT);
     
     return profileData;
   } catch (error) {
