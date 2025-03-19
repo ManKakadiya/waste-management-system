@@ -39,16 +39,16 @@ const ComplaintFilter = ({
           value={statusFilter || "all"} 
           onValueChange={(value) => setStatusFilter(value === "all" ? null : value)}
         >
-          <SelectTrigger className="w-full sm:w-[180px] flex gap-2">
+          <SelectTrigger className="w-full sm:w-[180px] flex gap-2 bg-white">
             <Filter className="w-4 h-4" />
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="Pending">Pending</SelectItem>
-            <SelectItem value="Under Review">Under Review</SelectItem>
-            <SelectItem value="In Progress">In Progress</SelectItem>
-            <SelectItem value="Resolved">Resolved</SelectItem>
+          <SelectContent className="bg-white">
+            <SelectItem value="all" className="text-primary hover:bg-green-50 focus:bg-green-50">All Statuses</SelectItem>
+            <SelectItem value="Pending" className="hover:bg-green-50 focus:bg-green-50">Pending</SelectItem>
+            <SelectItem value="Under Review" className="hover:bg-green-50 focus:bg-green-50">Under Review</SelectItem>
+            <SelectItem value="In Progress" className="hover:bg-green-50 focus:bg-green-50">In Progress</SelectItem>
+            <SelectItem value="Resolved" className="hover:bg-green-50 focus:bg-green-50">Resolved</SelectItem>
           </SelectContent>
         </Select>
       </div>

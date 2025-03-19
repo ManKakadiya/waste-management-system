@@ -20,7 +20,7 @@ const ComplaintDetailsDialog = ({ complaint, isOpen, setIsOpen }: ComplaintDetai
   
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-4xl bg-white">
         <DialogHeader>
           <DialogTitle>{complaint.title}</DialogTitle>
           <DialogDescription>

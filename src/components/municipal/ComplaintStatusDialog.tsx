@@ -62,7 +62,7 @@ const ComplaintStatusDialog = ({
         setAfterPhoto(null);
       }
     }}>
-      <DialogContent>
+      <DialogContent className="bg-white">
         <DialogHeader>
           <DialogTitle>Update Complaint Status</DialogTitle>
           <DialogDescription>
@@ -74,14 +74,14 @@ const ComplaintStatusDialog = ({
           <div className="space-y-2">
             <label className="text-sm font-medium">Select New Status:</label>
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger>
+              <SelectTrigger className="bg-white">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Pending">Pending</SelectItem>
-                <SelectItem value="In Progress">In Progress</SelectItem>
-                <SelectItem value="Under Review">Under Review</SelectItem>
-                <SelectItem value="Resolved">Resolved</SelectItem>
+              <SelectContent className="bg-white">
+                <SelectItem value="Pending" className="hover:bg-green-50 focus:bg-green-50">Pending</SelectItem>
+                <SelectItem value="In Progress" className="hover:bg-green-50 focus:bg-green-50">In Progress</SelectItem>
+                <SelectItem value="Under Review" className="hover:bg-green-50 focus:bg-green-50">Under Review</SelectItem>
+                <SelectItem value="Resolved" className="hover:bg-green-50 focus:bg-green-50">Resolved</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -99,7 +99,7 @@ const ComplaintStatusDialog = ({
                 />
                 <label
                   htmlFor="afterPhoto"
-                  className="flex items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary transition-colors duration-300"
+                  className="flex items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary transition-colors duration-300 bg-white"
                 >
                   {afterPhoto ? (
                     <img
@@ -127,7 +127,8 @@ const ComplaintStatusDialog = ({
           </Button>
           <Button 
             onClick={handleSubmit} 
-            disabled={isPending || !selectedStatus}>
+            disabled={isPending || !selectedStatus}
+            className="bg-primary hover:bg-primary-hover text-white">
             {isPending ? 
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" /> : null}
             Update Status
