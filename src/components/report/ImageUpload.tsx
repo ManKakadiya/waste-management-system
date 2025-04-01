@@ -73,7 +73,9 @@ const ImageUpload = ({ image, onImageChange, required = false }: ImageUploadProp
                 <span className="text-sm text-text-secondary">
                   {required ? "Click or drag to upload image (required)" : "Click or drag to upload image"}
                 </span>
-                <span className="text-xs text-gray-400 mt-1">Powered by Cloudinary</span>
+                <span className="text-xs text-gray-400 mt-1">
+                  {import.meta.env.VITE_CLOUDINARY_CLOUD_NAME ? "Powered by Cloudinary" : "Cloudinary not configured"}
+                </span>
               </div>
             </div>
           )}

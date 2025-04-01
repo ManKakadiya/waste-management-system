@@ -1,8 +1,9 @@
 import { supabase } from "./client";
+import { toast } from "@/hooks/use-toast";
 
 // Initialize Cloudinary configuration
-const CLOUDINARY_CLOUD_NAME = "demo"; // Replace with your Cloudinary cloud name
-const CLOUDINARY_UPLOAD_PRESET = "ml_default"; // Replace with your unsigned upload preset
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "demo"; 
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "ml_default"; 
 
 // Helper function to check if a bucket exists (keeping for backward compatibility)
 export const checkBucketExists = async (bucketName: string) => {
@@ -48,9 +49,18 @@ export const initComplaintsBucket = async () => {
   return createBucketIfNotExists('complaints', true);
 };
 
-// New function to upload image to Cloudinary
+// Upload image to Cloudinary
 export const uploadImageToCloudinary = async (base64Image: string, folder = 'complaints') => {
   try {
+    if (!CLOUDINARY_CLOUD_NAME || CLOUDINARY_CLOUD_NAME === "demo") {
+      toast({
+        title: "Configuration Error",
+        description: "Cloudinary credentials are not configured. Please set them up first.",
+        variant: "destructive",
+      });
+      throw new Error("Cloudinary credentials not configured");
+    }
+    
     // Remove the data URL prefix if it exists
     const base64Data = base64Image.includes('base64,') 
       ? base64Image.split('base64,')[1] 
