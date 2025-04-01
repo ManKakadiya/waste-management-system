@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Camera } from "lucide-react";
+import { Camera, Upload } from "lucide-react";
 
 interface ImageUploadProps {
   image: string | null;
@@ -68,10 +68,13 @@ const ImageUpload = ({ image, onImageChange, required = false }: ImageUploadProp
             />
           ) : (
             <div className="text-center">
-              <Camera className="mx-auto w-8 h-8 text-text-secondary mb-2" />
-              <span className="text-sm text-text-secondary">
-                {required ? "Click or drag to upload image (required)" : "Click or drag to upload image"}
-              </span>
+              <div className="flex flex-col items-center">
+                <Upload className="mx-auto w-8 h-8 text-primary mb-2" />
+                <span className="text-sm text-text-secondary">
+                  {required ? "Click or drag to upload image (required)" : "Click or drag to upload image"}
+                </span>
+                <span className="text-xs text-gray-400 mt-1">Powered by Cloudinary</span>
+              </div>
             </div>
           )}
         </label>

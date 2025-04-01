@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { createBucketIfNotExists } from "@/integrations/supabase/storage";
+import { uploadImageToCloudinary } from "@/integrations/supabase/storage";
 
 export const useReportForm = () => {
   const { toast } = useToast();
@@ -183,36 +183,14 @@ export const useReportForm = () => {
       let imageUrl;
       
       if (image) {
-        // Ensure the complaints bucket exists
-        const bucketExists = await createBucketIfNotExists('complaints', true);
-        
-        if (!bucketExists) {
-          throw new Error("Failed to create or access storage bucket for images");
-        }
-        
-        // Remove the data URL prefix and get the base64 data
-        const base64Data = image.split(',')[1];
-        const fileName = `report_${Date.now()}.jpg`;
-        
-        // Upload the image to Supabase Storage with proper error handling
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('complaints')
-          .upload(fileName, Buffer.from(base64Data, 'base64'), {
-            contentType: 'image/jpeg',
-            upsert: true
-          });
-          
-        if (uploadError) {
+        try {
+          // Upload to Cloudinary instead of Supabase
+          imageUrl = await uploadImageToCloudinary(image, 'waste-reports');
+          console.log("Cloudinary upload successful:", imageUrl);
+        } catch (uploadError: any) {
           console.error("Image upload error:", uploadError);
-          throw new Error(`Failed to upload image: ${uploadError.message}`);
+          throw new Error(`Failed to upload image: ${uploadError.message || "Unknown error"}`);
         }
-        
-        // Get the public URL of the uploaded image
-        const { data: { publicUrl } } = supabase.storage
-          .from('complaints')
-          .getPublicUrl(fileName);
-          
-        imageUrl = publicUrl;
       }
       
       // Create the complaint record
