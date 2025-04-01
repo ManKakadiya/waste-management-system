@@ -1,5 +1,4 @@
 
-import { useState } from "react";
 import { MapPin, MapPinned, Send } from "lucide-react";
 import ImageUpload from "./ImageUpload";
 
@@ -38,8 +37,8 @@ const ReportForm = ({
     <form onSubmit={handleSubmit} className="space-y-6 fade-in-up">
       <div className="glass-card rounded-2xl p-8 space-y-6">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-text" htmlFor="title">
-            Title
+          <label className="text-sm font-medium text-text flex items-center" htmlFor="title">
+            Title <span className="text-red-500 ml-1">*</span>
           </label>
           <input
             id="title"
@@ -53,8 +52,8 @@ const ReportForm = ({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-text" htmlFor="location">
-            Location
+          <label className="text-sm font-medium text-text flex items-center" htmlFor="location">
+            Location <span className="text-red-500 ml-1">*</span>
           </label>
           <div className="relative">
             <MapPin className="absolute left-3 top-3 w-5 h-5 text-text-secondary" />
@@ -71,8 +70,8 @@ const ReportForm = ({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-text" htmlFor="pincode">
-            Pincode
+          <label className="text-sm font-medium text-text flex items-center" htmlFor="pincode">
+            Pincode <span className="text-red-500 ml-1">*</span>
           </label>
           <div className="relative">
             <MapPinned className="absolute left-3 top-3 w-5 h-5 text-text-secondary" />
@@ -94,8 +93,8 @@ const ReportForm = ({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-text" htmlFor="description">
-            Description
+          <label className="text-sm font-medium text-text flex items-center" htmlFor="description">
+            Description <span className="text-red-500 ml-1">*</span>
           </label>
           <textarea
             id="description"
@@ -108,7 +107,7 @@ const ReportForm = ({
           />
         </div>
 
-        <ImageUpload image={image} onImageChange={handleImageUpload} />
+        <ImageUpload image={image} onImageChange={handleImageUpload} required={true} />
 
         <button
           type="submit"

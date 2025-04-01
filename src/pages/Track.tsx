@@ -9,6 +9,16 @@ import ComplaintDetailsDialog from "@/components/track/ComplaintDetailsDialog";
 import { useTrackComplaints } from "@/hooks/useTrackComplaints";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Track = () => {
   const navigate = useNavigate();
@@ -35,7 +45,12 @@ const Track = () => {
     selectedComplaint,
     dialogOpen,
     handleViewDetails,
-    handleCloseDialog
+    handleCloseDialog,
+    handleDeleteClick,
+    deleteDialogOpen,
+    handleConfirmDelete,
+    handleCancelDelete,
+    isDeleting
   } = useTrackComplaints();
 
   return (
@@ -69,6 +84,7 @@ const Track = () => {
               key={complaint.id}
               complaint={complaint}
               onViewDetails={handleViewDetails}
+              onDeleteClick={handleDeleteClick}
             />
           ))}
         </div>
@@ -79,6 +95,34 @@ const Track = () => {
         isOpen={dialogOpen}
         onClose={handleCloseDialog}
       />
+      
+      <AlertDialog open={deleteDialogOpen} onOpenChange={handleCancelDelete}>
+        <AlertDialogContent className="bg-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this complaint?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your complaint
+              and remove the data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <span className="animate-spin mr-2">⟳</span> Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };

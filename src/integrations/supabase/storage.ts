@@ -3,16 +3,22 @@ import { supabase } from "./client";
 
 // Helper function to check if a bucket exists
 export const checkBucketExists = async (bucketName: string) => {
-  const { data, error } = await supabase.storage.getBucket(bucketName);
-  return !error && data;
+  try {
+    const { data, error } = await supabase.storage.getBucket(bucketName);
+    return !error && data;
+  } catch (error) {
+    console.error(`Error checking if bucket ${bucketName} exists:`, error);
+    return false;
+  }
 };
 
 // Helper function to create a bucket if it doesn't exist
 export const createBucketIfNotExists = async (bucketName: string, isPublic: boolean = true) => {
-  const exists = await checkBucketExists(bucketName);
-  
-  if (!exists) {
-    try {
+  try {
+    const exists = await checkBucketExists(bucketName);
+    
+    if (!exists) {
+      console.log(`Bucket ${bucketName} does not exist, creating...`);
       const { error } = await supabase.storage.createBucket(bucketName, {
         public: isPublic
       });
@@ -22,20 +28,16 @@ export const createBucketIfNotExists = async (bucketName: string, isPublic: bool
         return false;
       }
       
-      // Set up bucket policies to allow public access if needed
-      if (isPublic) {
-        // This step might require additional permissions that the client doesn't have
-        console.log(`Bucket ${bucketName} created with public access`);
-      }
-      
+      console.log(`Bucket ${bucketName} created successfully`);
       return true;
-    } catch (err) {
-      console.error(`Failed to create bucket ${bucketName}:`, err);
-      return false;
     }
+    
+    console.log(`Bucket ${bucketName} already exists`);
+    return true;
+  } catch (err) {
+    console.error(`Failed to create bucket ${bucketName}:`, err);
+    return false;
   }
-  
-  return true;
 };
 
 // Initialize complaints bucket
@@ -48,27 +50,26 @@ const initBuckets = () => {
   let retries = 0;
   const maxRetries = 3;
   
-  const attemptInit = () => {
-    initComplaintsBucket()
-      .then(created => {
-        if (created) {
-          console.log('Complaints bucket created or already exists');
-        } else if (retries < maxRetries) {
-          retries++;
-          console.log(`Retrying bucket creation (${retries}/${maxRetries})...`);
-          setTimeout(attemptInit, 2000 * retries);
-        } else {
-          console.error('Failed to initialize complaints bucket after multiple attempts');
-        }
-      })
-      .catch(err => {
-        console.error('Failed to initialize complaints bucket:', err);
-        if (retries < maxRetries) {
-          retries++;
-          console.log(`Retrying bucket creation (${retries}/${maxRetries})...`);
-          setTimeout(attemptInit, 2000 * retries);
-        }
-      });
+  const attemptInit = async () => {
+    try {
+      const created = await initComplaintsBucket();
+      if (created) {
+        console.log('Complaints bucket created or already exists');
+      } else if (retries < maxRetries) {
+        retries++;
+        console.log(`Retrying bucket creation (${retries}/${maxRetries})...`);
+        setTimeout(attemptInit, 2000 * retries);
+      } else {
+        console.error('Failed to initialize complaints bucket after multiple attempts');
+      }
+    } catch (err) {
+      console.error('Failed to initialize complaints bucket:', err);
+      if (retries < maxRetries) {
+        retries++;
+        console.log(`Retrying bucket creation (${retries}/${maxRetries})...`);
+        setTimeout(attemptInit, 2000 * retries);
+      }
+    }
   };
   
   attemptInit();

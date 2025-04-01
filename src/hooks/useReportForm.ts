@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { createBucketIfNotExists } from "@/integrations/supabase/storage";
 
 export const useReportForm = () => {
   const { toast } = useToast();
@@ -56,6 +57,7 @@ export const useReportForm = () => {
       toast({
         title: "Report Submitted",
         description: "Your waste report has been successfully submitted.",
+        variant: "success",
       });
       
       // Reset form
@@ -83,9 +85,36 @@ export const useReportForm = () => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid File Type",
+          description: "Please upload an image file (JPEG, PNG, etc.).",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File Too Large",
+          description: "Please upload an image smaller than 5MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       const reader = new FileReader();
       reader.onloadend = () => {
         setImage(reader.result as string);
+      };
+      reader.onerror = () => {
+        toast({
+          title: "Read Error",
+          description: "Failed to read the image file. Please try again.",
+          variant: "destructive",
+        });
       };
       reader.readAsDataURL(file);
     }
@@ -139,27 +168,26 @@ export const useReportForm = () => {
       return;
     }
     
+    if (!image) {
+      toast({
+        title: "Image Required",
+        description: "Please upload an image of the waste issue.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setLoading(true);
     
     try {
       let imageUrl;
       
       if (image) {
-        // First, make sure the complaints bucket exists
-        const { error: bucketError } = await supabase.storage
-          .getBucket('complaints');
-          
-        if (bucketError && bucketError.message.includes("not found")) {
-          // Create the bucket if it doesn't exist
-          const { error: createBucketError } = await supabase.storage
-            .createBucket('complaints', {
-              public: true
-            });
-            
-          if (createBucketError) {
-            console.error("Error creating bucket:", createBucketError);
-            throw new Error("Failed to create storage bucket for images");
-          }
+        // Ensure the complaints bucket exists
+        const bucketExists = await createBucketIfNotExists('complaints', true);
+        
+        if (!bucketExists) {
+          throw new Error("Failed to create or access storage bucket for images");
         }
         
         // Remove the data URL prefix and get the base64 data
