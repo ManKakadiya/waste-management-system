@@ -1,6 +1,7 @@
 
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { RefreshCw } from "lucide-react";
 import DashboardLayout from "@/components/municipal/DashboardLayout";
 import TrackHeader from "@/components/track/TrackHeader";
 import EmptyState from "@/components/track/EmptyState";
@@ -19,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 
 const Track = () => {
   const navigate = useNavigate();
@@ -42,6 +44,7 @@ const Track = () => {
     setSearchQuery,
     complaints,
     isLoading,
+    isRefreshing,
     selectedComplaint,
     dialogOpen,
     handleViewDetails,
@@ -50,7 +53,8 @@ const Track = () => {
     deleteDialogOpen,
     handleConfirmDelete,
     handleCancelDelete,
-    isDeleting
+    isDeleting,
+    handleRefresh
   } = useTrackComplaints();
 
   return (
@@ -61,6 +65,8 @@ const Track = () => {
       <TrackHeader 
         searchQuery={searchQuery} 
         setSearchQuery={setSearchQuery}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
       />
 
       {isLoading ? (
@@ -71,6 +77,8 @@ const Track = () => {
         <EmptyState 
           isSignedIn={!!user} 
           hasSearchQuery={!!searchQuery}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
         />
       ) : !user ? (
         <EmptyState 
@@ -78,7 +86,7 @@ const Track = () => {
           hasSearchQuery={false}
         />
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-4 mt-4">
           {complaints.map((complaint) => (
             <ComplaintCard
               key={complaint.id}
@@ -94,6 +102,7 @@ const Track = () => {
         complaint={selectedComplaint}
         isOpen={dialogOpen}
         onClose={handleCloseDialog}
+        onRefresh={handleRefresh}
       />
       
       <AlertDialog open={deleteDialogOpen} onOpenChange={handleCancelDelete}>

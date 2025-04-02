@@ -15,9 +15,10 @@ export const useTrackComplaints = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [complaintToDelete, setComplaintToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch user's complaints
-  const { data: complaints = [], isLoading } = useQuery({
+  const { data: complaints = [], isLoading, refetch } = useQuery({
     queryKey: ['user-complaints', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -34,6 +35,30 @@ export const useTrackComplaints = () => {
     enabled: !!user?.id,
   });
 
+  // Refresh complaints function
+  const handleRefresh = async () => {
+    if (!user?.id) return;
+    
+    setIsRefreshing(true);
+    try {
+      await refetch();
+      toast({
+        title: "Refreshed",
+        description: "Complaint list has been refreshed.",
+        variant: "success",
+      });
+    } catch (error) {
+      console.error("Error refreshing complaints:", error);
+      toast({
+        title: "Refresh Failed",
+        description: "There was an error refreshing the complaints list.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   // Delete complaint mutation
   const deleteComplaintMutation = useMutation({
     mutationFn: async (complaintId: string) => {
@@ -47,7 +72,10 @@ export const useTrackComplaints = () => {
         .eq('id', complaintId)
         .eq('user_id', user.id); // Security: ensure user can only delete their own complaints
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error deleting complaint:", error);
+        throw error;
+      }
       return complaintId;
     },
     onSuccess: (complaintId) => {
@@ -120,6 +148,7 @@ export const useTrackComplaints = () => {
     setSearchQuery,
     complaints: filteredComplaints,
     isLoading,
+    isRefreshing,
     selectedComplaint,
     dialogOpen,
     handleViewDetails,
@@ -128,6 +157,7 @@ export const useTrackComplaints = () => {
     deleteDialogOpen,
     handleConfirmDelete,
     handleCancelDelete,
-    isDeleting
+    isDeleting,
+    handleRefresh
   };
 };

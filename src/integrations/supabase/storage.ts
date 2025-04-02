@@ -8,7 +8,11 @@ const BUCKET_NAME = 'waste-reports';
 export const checkBucketExists = async (bucketName: string) => {
   try {
     const { data, error } = await supabase.storage.getBucket(bucketName);
-    return !error && data;
+    if (error) {
+      console.error(`Error checking bucket ${bucketName}:`, error);
+      return false;
+    }
+    return !!data;
   } catch (error) {
     console.error(`Error checking if bucket ${bucketName} exists:`, error);
     return false;
@@ -24,7 +28,7 @@ export const createBucketIfNotExists = async (bucketName: string) => {
       console.log(`Bucket ${bucketName} does not exist, attempting to create it...`);
       const { data, error } = await supabase.storage.createBucket(bucketName, {
         public: true,
-        fileSizeLimit: 5 * 1024 * 1024 // 5MB limit
+        fileSizeLimit: 10 * 1024 * 1024 // 10MB limit
       });
       
       if (error) {
@@ -94,23 +98,31 @@ export const uploadImageToStorage = async (
 
 // Initialize complaints bucket
 export const initComplaintsBucket = async () => {
-  return createBucketIfNotExists(BUCKET_NAME);
+  try {
+    const exists = await createBucketIfNotExists(BUCKET_NAME);
+    return exists;
+  } catch (error) {
+    console.error('Error initializing complaints bucket:', error);
+    return false;
+  }
 };
 
 // Call this function when the app starts, with retry mechanism
-const initBuckets = () => {
+export const initBuckets = async () => {
   let retries = 0;
-  const maxRetries = 3;
+  const maxRetries = 5;
   
   const attemptInit = async () => {
     try {
       const exists = await initComplaintsBucket();
       if (exists) {
         console.log('Complaints bucket exists and is ready');
+        return true;
       } else if (retries < maxRetries) {
         retries++;
         console.log(`Bucket initialization failed (${retries}/${maxRetries}), retrying...`);
-        setTimeout(attemptInit, 2000 * retries);
+        await new Promise(resolve => setTimeout(resolve, 2000 * retries));
+        return attemptInit();
       } else {
         console.error('Failed to initialize storage bucket after multiple attempts');
         toast({
@@ -118,28 +130,31 @@ const initBuckets = () => {
           description: "Failed to initialize image storage. Some features may not work.",
           variant: "destructive"
         });
+        return false;
       }
     } catch (err) {
       console.error('Failed to initialize storage bucket:', err);
       if (retries < maxRetries) {
         retries++;
         console.log(`Retrying bucket initialization (${retries}/${maxRetries})...`);
-        setTimeout(attemptInit, 2000 * retries);
+        await new Promise(resolve => setTimeout(resolve, 2000 * retries));
+        return attemptInit();
       } else {
         toast({
           title: "Storage Error",
           description: "Failed to initialize image storage. Some features may not work.",
           variant: "destructive"
         });
+        return false;
       }
     }
   };
   
-  attemptInit();
+  return attemptInit();
 };
 
-// Start the initialization process
+// Initialize buckets on module load
 initBuckets();
 
-// Export uploadImageToStorage as the main upload function
+// Export the same function name for backward compatibility
 export { uploadImageToStorage as uploadImageToCloudinary };

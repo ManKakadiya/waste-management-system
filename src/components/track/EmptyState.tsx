@@ -1,37 +1,79 @@
 
-import { Card } from "@/components/ui/card";
+import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 interface EmptyStateProps {
   isSignedIn: boolean;
   hasSearchQuery: boolean;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
-const EmptyState = ({ isSignedIn, hasSearchQuery }: EmptyStateProps) => {
+const EmptyState = ({ isSignedIn, hasSearchQuery, onRefresh, isRefreshing }: EmptyStateProps) => {
   if (!isSignedIn) {
     return (
-      <Card className="p-8 text-center">
-        <h3 className="text-xl font-medium mb-2">Sign In Required</h3>
-        <p className="text-gray-500">Please sign in to view your reports.</p>
-        <Button className="mt-4" onClick={() => window.location.href = "/auth"}>
-          Sign In
+      <div className="bg-white rounded-lg shadow-sm border p-8 text-center my-6">
+        <h3 className="text-xl font-semibold mb-4">Sign In to Track Your Reports</h3>
+        <p className="text-gray-600 mb-6">
+          You need to be signed in to track your waste management reports.
+        </p>
+        <Button asChild>
+          <Link to="/auth">Sign In</Link>
         </Button>
-      </Card>
+      </div>
+    );
+  }
+
+  if (hasSearchQuery) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border p-8 text-center my-6">
+        <h3 className="text-xl font-semibold mb-4">No Matching Reports</h3>
+        <p className="text-gray-600 mb-6">
+          No reports match your search criteria. Try adjusting your search query.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            Clear Search
+          </Button>
+          {onRefresh && (
+            <Button 
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? 'Refreshing...' : 'Refresh Status'}
+            </Button>
+          )}
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="p-8 text-center">
-      <h3 className="text-xl font-medium mb-2">No Reports Found</h3>
-      {hasSearchQuery ? (
-        <p className="text-gray-500">No reports match your search criteria.</p>
-      ) : (
-        <p className="text-gray-500">You haven't submitted any reports yet.</p>
-      )}
-      <Button className="mt-4" onClick={() => window.location.href = "/report"}>
-        Submit a Report
-      </Button>
-    </Card>
+    <div className="bg-white rounded-lg shadow-sm border p-8 text-center my-6">
+      <h3 className="text-xl font-semibold mb-4">No Reports Found</h3>
+      <p className="text-gray-600 mb-6">
+        You haven't submitted any waste management reports yet.
+      </p>
+      <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <Button asChild>
+          <Link to="/report">Report New Issue</Link>
+        </Button>
+        {onRefresh && (
+          <Button 
+            variant="outline"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh Status'}
+          </Button>
+        )}
+      </div>
+    </div>
   );
 };
 

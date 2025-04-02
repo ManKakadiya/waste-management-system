@@ -1,78 +1,133 @@
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useState } from "react";
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
+import { getStatusColor, getStatusIcon } from "@/utils/complaintUtils";
 
 interface ComplaintDetailsDialogProps {
   complaint: any;
   isOpen: boolean;
   onClose: () => void;
+  onRefresh?: () => void;
 }
 
-const ComplaintDetailsDialog = ({ complaint, isOpen, onClose }: ComplaintDetailsDialogProps) => {
+const ComplaintDetailsDialog = ({ 
+  complaint, 
+  isOpen, 
+  onClose,
+  onRefresh 
+}: ComplaintDetailsDialogProps) => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (!onRefresh) return;
+    
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   if (!complaint) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl bg-white">
         <DialogHeader>
-          <DialogTitle>{complaint.title}</DialogTitle>
-          <DialogDescription>
-            Complaint ID: {complaint.id}
-          </DialogDescription>
+          <DialogTitle className="text-xl">{complaint.title}</DialogTitle>
         </DialogHeader>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-          <div>
-            <h4 className="font-medium mb-2">Reported Photo</h4>
-            {complaint.image_url ? (
-              <div className="rounded-lg overflow-hidden h-64 bg-gray-100">
-                <img 
-                  src={complaint.image_url} 
-                  alt="Reported issue" 
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-64 bg-gray-100 rounded-lg">
-                <p className="text-gray-500">No image available</p>
-              </div>
-            )}
+        <div className="grid gap-4 py-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500">
+              Status:
+            </span>
+            <span
+              className={`px-3 py-1 rounded-full text-sm font-medium inline-flex items-center gap-1 ${getStatusColor(
+                complaint.status
+              )}`}
+            >
+              {getStatusIcon(complaint.status)} {complaint.status}
+            </span>
           </div>
           
-          <div>
-            <h4 className="font-medium mb-2">After Resolution Photo</h4>
-            {complaint.after_image_url ? (
-              <div className="rounded-lg overflow-hidden h-64 bg-gray-100">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500">
+              Location:
+            </span>
+            <span className="text-sm font-medium">{complaint.location}</span>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500">
+              Pincode:
+            </span>
+            <span className="text-sm font-medium">{complaint.pincode}</span>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500">
+              Date Reported:
+            </span>
+            <span className="text-sm font-medium">
+              {new Date(complaint.created_at).toLocaleString()}
+            </span>
+          </div>
+          
+          <div className="mt-2">
+            <h4 className="text-sm font-medium mb-1">Description:</h4>
+            <p className="text-sm text-gray-700 border rounded-md p-3 bg-gray-50">{complaint.description}</p>
+          </div>
+          
+          {complaint.image_url && (
+            <div className="mt-2">
+              <h4 className="text-sm font-medium mb-1">Image:</h4>
+              <div className="border rounded-md overflow-hidden">
+                <img 
+                  src={complaint.image_url} 
+                  alt="Complaint" 
+                  className="w-full object-cover max-h-60" 
+                />
+              </div>
+            </div>
+          )}
+          
+          {complaint.after_image_url && complaint.status === "Resolved" && (
+            <div className="mt-2">
+              <h4 className="text-sm font-medium mb-1">After Resolution:</h4>
+              <div className="border rounded-md overflow-hidden">
                 <img 
                   src={complaint.after_image_url} 
                   alt="After resolution" 
-                  className="w-full h-full object-cover"
+                  className="w-full object-cover max-h-60" 
                 />
               </div>
-            ) : (
-              <div className="flex items-center justify-center h-64 bg-gray-100 rounded-lg">
-                <p className="text-gray-500">
-                  {complaint.status === "Resolved" 
-                    ? "Resolution photo pending" 
-                    : "Not resolved yet"}
-                </p>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
         
-        <div className="space-y-2">
-          <p><strong>Location:</strong> {complaint.location}</p>
-          <p><strong>Area Code:</strong> {complaint.pincode}</p>
-          <p><strong>Description:</strong> {complaint.description}</p>
-          <p><strong>Reported on:</strong> {complaint.created_at ? new Date(complaint.created_at).toLocaleDateString() : 'N/A'}</p>
-          <p><strong>Status:</strong> {complaint.status}</p>
-        </div>
-        
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
+        <DialogFooter className="flex gap-2">
+          {onRefresh && (
+            <Button 
+              variant="outline" 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? 'Refreshing...' : 'Refresh Status'}
+            </Button>
+          )}
+          <Button onClick={onClose}>Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
