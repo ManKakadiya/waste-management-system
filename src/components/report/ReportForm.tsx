@@ -1,5 +1,5 @@
 
-import { MapPin, MapPinned, Send, CloudLightning } from "lucide-react";
+import { MapPin, MapPinned, Send, Database } from "lucide-react";
 import ImageUpload from "./ImageUpload";
 
 interface ReportFormProps {
@@ -111,8 +111,8 @@ const ReportForm = ({
         
         <div className="flex items-center justify-between">
           <div className="flex items-center text-xs text-gray-500">
-            <CloudLightning size={14} className="mr-1" /> 
-            <span>Images uploaded via Cloudinary</span>
+            <Database size={14} className="mr-1" /> 
+            <span>Images stored in Supabase</span>
           </div>
         </div>
 
