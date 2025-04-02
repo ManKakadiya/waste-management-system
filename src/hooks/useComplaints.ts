@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { decode } from "@/utils/complaintUtils";
+import { uploadImageToStorage } from "@/integrations/supabase/storage";
 
 export const useComplaints = (areaCode: string | undefined, statusFilter: string | null) => {
   const { toast } = useToast();
@@ -122,23 +123,19 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
       
       // Upload the after photo if it exists
       if (afterPhoto && status === "Resolved") {
-        const file = afterPhoto.split(",")[1]; // Remove the data URL prefix
-        const fileName = `after_${selectedComplaint.id}_${Date.now()}.jpg`;
-        
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('complaints')
-          .upload(fileName, decode(file), {
-            contentType: 'image/jpeg',
-            upsert: true
+        try {
+          // Use the uploadImageToStorage function directly
+          afterImageUrl = await uploadImageToStorage(afterPhoto, 'resolved');
+          console.log("Successfully uploaded after photo:", afterImageUrl);
+        } catch (uploadError) {
+          console.error("Failed to upload after photo:", uploadError);
+          toast({
+            title: "Upload Failed",
+            description: "Failed to upload the after photo. Please try again.",
+            variant: "destructive"
           });
-        
-        if (uploadError) throw uploadError;
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from('complaints')
-          .getPublicUrl(fileName);
-          
-        afterImageUrl = publicUrl;
+          return;
+        }
       }
       
       await updateComplaintMutation.mutateAsync({ 

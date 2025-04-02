@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Upload } from "lucide-react";
+import { Upload, Camera } from "lucide-react";
 import { 
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { validateImageFile, readImageFile } from "@/utils/imageUtils";
 
 interface ComplaintStatusDialogProps {
   complaint: any;
@@ -35,15 +36,45 @@ const ComplaintStatusDialog = ({
 }: ComplaintStatusDialogProps) => {
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [afterPhoto, setAfterPhoto] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
   
-  const handleAfterPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAfterPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAfterPhoto(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (file && validateImageFile(file)) {
+      try {
+        const dataUrl = await readImageFile(file);
+        setAfterPhoto(dataUrl);
+      } catch (error) {
+        console.error("Error reading image file:", error);
+      }
+    }
+  };
+  
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (validateImageFile(file)) {
+        try {
+          const dataUrl = await readImageFile(file);
+          setAfterPhoto(dataUrl);
+        } catch (error) {
+          console.error("Error reading dropped image file:", error);
+        }
+      }
     }
   };
   
@@ -60,6 +91,7 @@ const ComplaintStatusDialog = ({
       if (!open) {
         setSelectedStatus("");
         setAfterPhoto(null);
+        setDragActive(false);
       }
     }}>
       <DialogContent className="bg-white">
@@ -99,7 +131,13 @@ const ComplaintStatusDialog = ({
                 />
                 <label
                   htmlFor="afterPhoto"
-                  className="flex items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary transition-colors duration-300 bg-white"
+                  className={`flex items-center justify-center w-full h-32 border-2 border-dashed 
+                  ${dragActive ? "border-primary" : "border-border"} 
+                  rounded-xl cursor-pointer hover:border-primary transition-colors duration-300 bg-white`}
+                  onDragEnter={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDragOver={handleDrag}
+                  onDrop={handleDrop}
                 >
                   {afterPhoto ? (
                     <img
@@ -109,10 +147,15 @@ const ComplaintStatusDialog = ({
                     />
                   ) : (
                     <div className="text-center">
-                      <Upload className="mx-auto w-8 h-8 text-text-secondary mb-2" />
-                      <span className="text-sm text-text-secondary">
-                        Upload 'after work' photo (required)
-                      </span>
+                      <div className="flex flex-col items-center">
+                        <Upload className="mx-auto w-8 h-8 text-primary mb-2" />
+                        <span className="text-sm text-text-secondary">
+                          Upload 'after work' photo (required)
+                        </span>
+                        <span className="text-xs text-gray-400 mt-1">
+                          Stored in Supabase Storage
+                        </span>
+                      </div>
                     </div>
                   )}
                 </label>
@@ -127,7 +170,7 @@ const ComplaintStatusDialog = ({
           </Button>
           <Button 
             onClick={handleSubmit} 
-            disabled={isPending || !selectedStatus}
+            disabled={isPending || !selectedStatus || (selectedStatus === "Resolved" && !afterPhoto)}
             className="bg-primary hover:bg-primary-hover text-white">
             {isPending ? 
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" /> : null}
