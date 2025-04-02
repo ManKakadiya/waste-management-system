@@ -1,6 +1,6 @@
 
 import { supabase } from "./client";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 const BUCKET_NAME = 'waste-reports';
 
@@ -37,6 +37,15 @@ export const createBucketIfNotExists = async (bucketName: string) => {
       }
       
       console.log(`Successfully created bucket ${bucketName}`);
+      
+      // Set up public access policy for the bucket
+      try {
+        await setupPublicAccessPolicy(bucketName);
+        console.log(`Successfully set up public access policy for bucket ${bucketName}`);
+      } catch (policyError) {
+        console.error(`Error setting up public access policy for bucket ${bucketName}:`, policyError);
+      }
+      
       return true;
     }
     
@@ -47,12 +56,37 @@ export const createBucketIfNotExists = async (bucketName: string) => {
   }
 };
 
+// Setup public access policy for the bucket
+const setupPublicAccessPolicy = async (bucketName: string) => {
+  try {
+    // Make sure bucket is set to public
+    const { error: updateError } = await supabase
+      .storage
+      .updateBucket(bucketName, {
+        public: true,
+        fileSizeLimit: 10 * 1024 * 1024
+      });
+    
+    if (updateError) {
+      console.error(`Error updating bucket ${bucketName} to public:`, updateError);
+      throw updateError;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error(`Error setting up public access policy:`, error);
+    throw error;
+  }
+};
+
 // Upload image to Supabase Storage
 export const uploadImageToStorage = async (
   base64Image: string, 
   folder = 'complaints'
 ): Promise<string> => {
   try {
+    console.log(`Starting image upload to ${folder} folder...`);
+    
     // Ensure the bucket exists before uploading
     const bucketExists = await createBucketIfNotExists(BUCKET_NAME);
     if (!bucketExists) {
@@ -67,8 +101,12 @@ export const uploadImageToStorage = async (
     // Generate a unique filename
     const filename = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2, 15)}.jpg`;
     
+    console.log(`Generated filename: ${filename} for upload`);
+    
     // Convert base64 to Blob
     const blob = await fetch(`data:image/jpeg;base64,${base64Data}`).then(res => res.blob());
+    
+    console.log(`Converting base64 to blob successful, size: ${blob.size} bytes`);
     
     // Upload file to Supabase Storage
     const { data, error } = await supabase.storage
@@ -83,12 +121,14 @@ export const uploadImageToStorage = async (
       throw new Error(`Failed to upload image: ${error.message}`);
     }
     
+    console.log('Upload successful, data:', data);
+    
     // Get public URL
     const { data: publicUrlData } = supabase.storage
       .from(BUCKET_NAME)
       .getPublicUrl(filename);
     
-    console.log('Upload successful, public URL:', publicUrlData.publicUrl);
+    console.log('Public URL generated:', publicUrlData.publicUrl);
     return publicUrlData.publicUrl;
   } catch (error) {
     console.error('Error uploading to Supabase storage:', error);
@@ -99,6 +139,7 @@ export const uploadImageToStorage = async (
 // Initialize complaints bucket
 export const initComplaintsBucket = async () => {
   try {
+    console.log('Initializing complaints bucket...');
     const exists = await createBucketIfNotExists(BUCKET_NAME);
     return exists;
   } catch (error) {
@@ -125,11 +166,6 @@ export const initBuckets = async () => {
         return attemptInit();
       } else {
         console.error('Failed to initialize storage bucket after multiple attempts');
-        toast({
-          title: "Storage Error",
-          description: "Failed to initialize image storage. Some features may not work.",
-          variant: "destructive"
-        });
         return false;
       }
     } catch (err) {
@@ -140,11 +176,7 @@ export const initBuckets = async () => {
         await new Promise(resolve => setTimeout(resolve, 2000 * retries));
         return attemptInit();
       } else {
-        toast({
-          title: "Storage Error",
-          description: "Failed to initialize image storage. Some features may not work.",
-          variant: "destructive"
-        });
+        console.error('Maximum retries exceeded for bucket initialization');
         return false;
       }
     }
@@ -154,7 +186,13 @@ export const initBuckets = async () => {
 };
 
 // Initialize buckets on module load
-initBuckets();
+initBuckets().then(success => {
+  if (success) {
+    console.log('Storage buckets successfully initialized');
+  } else {
+    console.error('Failed to initialize storage buckets after all retries');
+  }
+});
 
 // Export the same function name for backward compatibility
 export { uploadImageToStorage as uploadImageToCloudinary };

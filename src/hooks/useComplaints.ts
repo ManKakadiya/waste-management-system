@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { decode } from "@/utils/complaintUtils";
-import { uploadImageToStorage } from "@/integrations/supabase/storage";
+import { uploadImageToStorage, createBucketIfNotExists } from "@/integrations/supabase/storage";
 
 export const useComplaints = (areaCode: string | undefined, statusFilter: string | null) => {
   const { toast } = useToast();
@@ -65,6 +65,11 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
   // Update complaint status mutation
   const updateComplaintMutation = useMutation({
     mutationFn: async ({ id, status, afterImageUrl }: { id: string, status: string, afterImageUrl?: string }) => {
+      console.log(`Updating complaint ${id} to status ${status} with afterImageUrl: ${afterImageUrl ? 'provided' : 'not provided'}`);
+      
+      // Make sure the waste-reports bucket exists
+      await createBucketIfNotExists('waste-reports');
+      
       const updateData: any = { status };
       
       if (afterImageUrl) {
@@ -78,7 +83,12 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error(`Error updating complaint status: ${error.message}`, error);
+        throw error;
+      }
+      
+      console.log(`Successfully updated complaint ${id} to status ${status}`);
       return data;
     },
     onSuccess: () => {
@@ -86,6 +96,7 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
       toast({
         title: "Status Updated",
         description: `Complaint status has been updated successfully.`,
+        variant: "success",
       });
       setStatusDialogOpen(false);
     },
@@ -100,6 +111,8 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
   });
 
   const handleStatusChange = async (status: string, afterPhoto: string | null) => {
+    console.log(`handleStatusChange called with status ${status} and afterPhoto: ${afterPhoto ? 'provided' : 'not provided'}`);
+    
     if (status === "Resolved" && !afterPhoto) {
       toast({
         title: "Photo Required",
@@ -124,6 +137,7 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
       // Upload the after photo if it exists
       if (afterPhoto && status === "Resolved") {
         try {
+          console.log("Uploading after photo...");
           // Use the uploadImageToStorage function directly
           afterImageUrl = await uploadImageToStorage(afterPhoto, 'resolved');
           console.log("Successfully uploaded after photo:", afterImageUrl);
@@ -138,6 +152,7 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
         }
       }
       
+      console.log("Calling mutation to update complaint status...");
       await updateComplaintMutation.mutateAsync({ 
         id: selectedComplaint.id, 
         status,

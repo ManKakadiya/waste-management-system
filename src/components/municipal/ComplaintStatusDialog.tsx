@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Upload, Camera } from "lucide-react";
 import { 
   Dialog,
@@ -18,6 +18,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { validateImageFile, readImageFile } from "@/utils/imageUtils";
+import { useToast } from "@/hooks/use-toast";
+import { createBucketIfNotExists } from "@/integrations/supabase/storage";
 
 interface ComplaintStatusDialogProps {
   complaint: any;
@@ -34,18 +36,56 @@ const ComplaintStatusDialog = ({
   onStatusChange,
   isPending
 }: ComplaintStatusDialogProps) => {
+  const { toast } = useToast();
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [afterPhoto, setAfterPhoto] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [bucketReady, setBucketReady] = useState(false);
+  
+  // Initialize storage bucket when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      const initBucket = async () => {
+        try {
+          const exists = await createBucketIfNotExists('waste-reports');
+          setBucketReady(exists);
+          if (!exists) {
+            toast({
+              title: "Storage Error",
+              description: "Could not initialize storage bucket for image uploads.",
+              variant: "destructive",
+            });
+          }
+        } catch (error) {
+          console.error("Error initializing bucket:", error);
+          setBucketReady(false);
+          toast({
+            title: "Storage Error",
+            description: "Failed to connect to storage service. Image uploads may not work.",
+            variant: "destructive",
+          });
+        }
+      };
+      
+      initBucket();
+    }
+  }, [isOpen, toast]);
   
   const handleAfterPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && validateImageFile(file)) {
       try {
+        console.log("Reading image file...");
         const dataUrl = await readImageFile(file);
+        console.log("Image file read successfully, setting after photo");
         setAfterPhoto(dataUrl);
       } catch (error) {
         console.error("Error reading image file:", error);
+        toast({
+          title: "Upload Error",
+          description: "Could not read the selected image file.",
+          variant: "destructive",
+        });
       }
     }
   };
@@ -73,6 +113,11 @@ const ComplaintStatusDialog = ({
           setAfterPhoto(dataUrl);
         } catch (error) {
           console.error("Error reading dropped image file:", error);
+          toast({
+            title: "Upload Error",
+            description: "Could not read the dropped image file.",
+            variant: "destructive",
+          });
         }
       }
     }
@@ -80,10 +125,47 @@ const ComplaintStatusDialog = ({
   
   const handleSubmit = () => {
     if (!selectedStatus) {
+      toast({
+        title: "Status Required",
+        description: "Please select a status.",
+        variant: "destructive",
+      });
       return;
     }
+    
+    if (selectedStatus === "Resolved" && !afterPhoto) {
+      toast({
+        title: "Photo Required",
+        description: "Please upload an 'after work' photo to mark as resolved.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check if storage is ready for uploads
+    if (selectedStatus === "Resolved" && !bucketReady) {
+      toast({
+        title: "Storage Not Ready",
+        description: "The storage system is not ready. Please try again later.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     onStatusChange(selectedStatus, afterPhoto);
   };
+  
+  // Reset form when dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedStatus("");
+      setAfterPhoto(null);
+      setDragActive(false);
+    } else if (complaint) {
+      // Pre-select the current status when dialog opens
+      setSelectedStatus(complaint.status || "");
+    }
+  }, [isOpen, complaint]);
   
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -153,7 +235,9 @@ const ComplaintStatusDialog = ({
                           Upload 'after work' photo (required)
                         </span>
                         <span className="text-xs text-gray-400 mt-1">
-                          Stored in Supabase Storage
+                          {bucketReady ? 
+                            "Stored in Supabase Storage" : 
+                            "Initializing storage..."}
                         </span>
                       </div>
                     </div>
@@ -170,7 +254,12 @@ const ComplaintStatusDialog = ({
           </Button>
           <Button 
             onClick={handleSubmit} 
-            disabled={isPending || !selectedStatus || (selectedStatus === "Resolved" && !afterPhoto)}
+            disabled={
+              isPending || 
+              !selectedStatus || 
+              (selectedStatus === "Resolved" && !afterPhoto) ||
+              (selectedStatus === "Resolved" && !bucketReady)
+            }
             className="bg-primary hover:bg-primary-hover text-white">
             {isPending ? 
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" /> : null}

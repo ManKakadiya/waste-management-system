@@ -59,24 +59,57 @@ export const useTrackComplaints = () => {
     }
   };
 
-  // Delete complaint mutation
+  // Delete complaint mutation - Updated to properly clean up storage as well
   const deleteComplaintMutation = useMutation({
     mutationFn: async (complaintId: string) => {
       if (!user?.id) throw new Error("User not authenticated");
       
       setIsDeleting(true);
       
-      const { error } = await supabase
-        .from('complaints')
-        .delete()
-        .eq('id', complaintId)
-        .eq('user_id', user.id); // Security: ensure user can only delete their own complaints
-      
-      if (error) {
-        console.error("Error deleting complaint:", error);
+      try {
+        // First, get the complaint details to find associated images
+        const { data: complaint, error: fetchError } = await supabase
+          .from('complaints')
+          .select('*')
+          .eq('id', complaintId)
+          .eq('user_id', user.id)
+          .single();
+        
+        if (fetchError) throw fetchError;
+        
+        // Delete any associated images from storage
+        if (complaint.image_url) {
+          const imagePath = getStoragePathFromUrl(complaint.image_url);
+          if (imagePath) {
+            await supabase.storage
+              .from('waste-reports')
+              .remove([imagePath]);
+          }
+        }
+        
+        if (complaint.after_image_url) {
+          const afterImagePath = getStoragePathFromUrl(complaint.after_image_url);
+          if (afterImagePath) {
+            await supabase.storage
+              .from('waste-reports')
+              .remove([afterImagePath]);
+          }
+        }
+        
+        // Delete the complaint record
+        const { error } = await supabase
+          .from('complaints')
+          .delete()
+          .eq('id', complaintId)
+          .eq('user_id', user.id);
+        
+        if (error) throw error;
+        
+        return complaintId;
+      } catch (error) {
+        console.error("Error in delete process:", error);
         throw error;
       }
-      return complaintId;
     },
     onSuccess: (complaintId) => {
       queryClient.invalidateQueries({ queryKey: ['user-complaints', user?.id] });
@@ -109,6 +142,30 @@ export const useTrackComplaints = () => {
       setIsDeleting(false);
     }
   });
+
+  // Helper function to extract file path from storage URL
+  const getStoragePathFromUrl = (url: string): string | null => {
+    if (!url) return null;
+    
+    try {
+      // Parse URL to extract file path
+      const urlObj = new URL(url);
+      // The path is after the bucket name in the URL
+      const segments = urlObj.pathname.split('/');
+      // Find the index of the bucket name
+      const bucketIndex = segments.findIndex(segment => segment === 'waste-reports');
+      
+      if (bucketIndex !== -1 && bucketIndex < segments.length - 1) {
+        // Join the segments after the bucket name to get the full path
+        return segments.slice(bucketIndex + 1).join('/');
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Failed to parse storage URL:", error);
+      return null;
+    }
+  };
 
   const filteredComplaints = complaints.filter((complaint) =>
     complaint.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
