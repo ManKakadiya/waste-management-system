@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { validateImageFile, readImageFile } from "@/utils/imageUtils";
 import { useToast } from "@/hooks/use-toast";
-import { createBucketIfNotExists } from "@/integrations/supabase/storage";
+import { ensureBucketExists } from "@/integrations/supabase/storage";
 
 interface ComplaintStatusDialogProps {
   complaint: any;
@@ -41,13 +41,15 @@ const ComplaintStatusDialog = ({
   const [afterPhoto, setAfterPhoto] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [bucketReady, setBucketReady] = useState(false);
+  const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   
   // Initialize storage bucket when dialog opens
   useEffect(() => {
     if (isOpen) {
       const initBucket = async () => {
         try {
-          const exists = await createBucketIfNotExists('waste-reports');
+          const exists = await ensureBucketExists();
           setBucketReady(exists);
           if (!exists) {
             toast({
@@ -68,8 +70,15 @@ const ComplaintStatusDialog = ({
       };
       
       initBucket();
+    } else {
+      // Clean up camera if dialog is closed
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        setCameraStream(null);
+      }
+      setIsCapturingPhoto(false);
     }
-  }, [isOpen, toast]);
+  }, [isOpen, toast, cameraStream]);
   
   const handleAfterPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -123,6 +132,71 @@ const ComplaintStatusDialog = ({
     }
   };
   
+  // Start camera capture
+  const startCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      setCameraStream(mediaStream);
+      setIsCapturingPhoto(true);
+      
+      // Connect the stream to video element
+      const videoElement = document.getElementById('camera-preview') as HTMLVideoElement;
+      if (videoElement) {
+        videoElement.srcObject = mediaStream;
+        videoElement.play();
+      }
+    } catch (error) {
+      console.error("Error accessing camera:", error);
+      toast({
+        title: "Camera Error",
+        description: "Could not access your device camera. Please check permissions.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // Take photo from camera
+  const takePhoto = () => {
+    try {
+      const videoElement = document.getElementById('camera-preview') as HTMLVideoElement;
+      const canvas = document.createElement('canvas');
+      canvas.width = videoElement.videoWidth;
+      canvas.height = videoElement.videoHeight;
+      
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setAfterPhoto(dataUrl);
+        
+        // Stop camera after taking photo
+        if (cameraStream) {
+          cameraStream.getTracks().forEach(track => track.stop());
+          setCameraStream(null);
+        }
+        setIsCapturingPhoto(false);
+      }
+    } catch (error) {
+      console.error("Error taking photo:", error);
+      toast({
+        title: "Camera Error",
+        description: "Failed to capture photo. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // Cancel camera capture
+  const cancelCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setIsCapturingPhoto(false);
+  };
+  
   const handleSubmit = () => {
     if (!selectedStatus) {
       toast({
@@ -174,9 +248,15 @@ const ComplaintStatusDialog = ({
         setSelectedStatus("");
         setAfterPhoto(null);
         setDragActive(false);
+        // Clean up camera if open
+        if (cameraStream) {
+          cameraStream.getTracks().forEach(track => track.stop());
+          setCameraStream(null);
+        }
+        setIsCapturingPhoto(false);
       }
     }}>
-      <DialogContent className="bg-white">
+      <DialogContent className="bg-white max-w-md">
         <DialogHeader>
           <DialogTitle>Update Complaint Status</DialogTitle>
           <DialogDescription>
@@ -203,47 +283,99 @@ const ComplaintStatusDialog = ({
           {selectedStatus === "Resolved" && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Upload 'After Work' Photo:</label>
-              <div className="relative">
-                <input
-                  id="afterPhoto"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAfterPhotoUpload}
-                  className="hidden"
-                />
-                <label
-                  htmlFor="afterPhoto"
-                  className={`flex items-center justify-center w-full h-32 border-2 border-dashed 
-                  ${dragActive ? "border-primary" : "border-border"} 
-                  rounded-xl cursor-pointer hover:border-primary transition-colors duration-300 bg-white`}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                >
-                  {afterPhoto ? (
+              
+              {isCapturingPhoto ? (
+                <div className="space-y-3">
+                  <div className="relative overflow-hidden rounded-lg border border-border bg-black aspect-video">
+                    <video 
+                      id="camera-preview" 
+                      className="w-full h-full object-cover"
+                      playsInline
+                      autoPlay
+                    />
+                  </div>
+                  <div className="flex justify-center gap-2">
+                    <Button 
+                      type="button" 
+                      onClick={takePhoto}
+                      className="bg-primary hover:bg-primary/90 text-white"
+                    >
+                      Take Photo
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={cancelCamera}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : afterPhoto ? (
+                <div className="space-y-3">
+                  <div className="relative overflow-hidden rounded-lg border border-border">
                     <img
                       src={afterPhoto}
                       alt="Preview"
-                      className="h-full w-full object-cover rounded-xl"
+                      className="w-full h-48 object-cover"
                     />
-                  ) : (
-                    <div className="text-center">
-                      <div className="flex flex-col items-center">
-                        <Upload className="mx-auto w-8 h-8 text-primary mb-2" />
-                        <span className="text-sm text-text-secondary">
-                          Upload 'after work' photo (required)
-                        </span>
-                        <span className="text-xs text-gray-400 mt-1">
-                          {bucketReady ? 
-                            "Stored in Supabase Storage" : 
-                            "Initializing storage..."}
+                  </div>
+                  <div className="flex justify-center">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setAfterPhoto(null)}
+                    >
+                      Remove Photo
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="relative">
+                    <input
+                      id="afterPhoto"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAfterPhotoUpload}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="afterPhoto"
+                      className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed 
+                      ${dragActive ? "border-primary" : "border-border"} 
+                      rounded-lg cursor-pointer hover:border-primary transition-colors duration-300 bg-white`}
+                      onDragEnter={handleDrag}
+                      onDragLeave={handleDrag}
+                      onDragOver={handleDrag}
+                      onDrop={handleDrop}
+                    >
+                      <div className="text-center">
+                        <Upload className="mx-auto w-8 h-8 text-primary mb-1" />
+                        <span className="text-xs text-text-secondary block">
+                          Upload Photo
                         </span>
                       </div>
-                    </div>
-                  )}
-                </label>
-              </div>
+                    </label>
+                  </div>
+                  
+                  <Button 
+                    type="button" 
+                    onClick={startCamera}
+                    className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-border
+                    rounded-lg hover:border-primary transition-colors duration-300 bg-white text-primary"
+                  >
+                    <Camera className="w-8 h-8 mb-1" />
+                    <span className="text-xs">Take Photo</span>
+                  </Button>
+                </div>
+              )}
+              
+              <p className="text-xs text-gray-500 text-center mt-2">
+                {bucketReady ? 
+                  "Required to mark as resolved" : 
+                  "Initializing storage..."}
+              </p>
             </div>
           )}
         </div>

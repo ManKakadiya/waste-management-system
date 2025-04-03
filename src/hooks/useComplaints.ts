@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { decode } from "@/utils/complaintUtils";
-import { uploadImageToStorage, createBucketIfNotExists } from "@/integrations/supabase/storage";
+import { uploadImage, ensureBucketExists } from "@/integrations/supabase/storage";
 
 export const useComplaints = (areaCode: string | undefined, statusFilter: string | null) => {
   const { toast } = useToast();
@@ -67,8 +67,8 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
     mutationFn: async ({ id, status, afterImageUrl }: { id: string, status: string, afterImageUrl?: string }) => {
       console.log(`Updating complaint ${id} to status ${status} with afterImageUrl: ${afterImageUrl ? 'provided' : 'not provided'}`);
       
-      // Make sure the waste-reports bucket exists
-      await createBucketIfNotExists('waste-reports');
+      // Make sure the bucket exists before uploading
+      await ensureBucketExists();
       
       const updateData: any = { status };
       
@@ -138,8 +138,8 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
       if (afterPhoto && status === "Resolved") {
         try {
           console.log("Uploading after photo...");
-          // Use the uploadImageToStorage function directly
-          afterImageUrl = await uploadImageToStorage(afterPhoto, 'resolved');
+          // Upload the after photo directly using the new function
+          afterImageUrl = await uploadImage(afterPhoto, 'resolved');
           console.log("Successfully uploaded after photo:", afterImageUrl);
         } catch (uploadError) {
           console.error("Failed to upload after photo:", uploadError);
