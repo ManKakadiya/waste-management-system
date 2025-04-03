@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { decode } from "@/utils/complaintUtils";
-import { uploadImage, ensureBucketExists } from "@/integrations/supabase/storage";
+import { uploadImage, checkBucketExists } from "@/integrations/supabase/storage";
 
 export const useComplaints = (areaCode: string | undefined, statusFilter: string | null) => {
   const { toast } = useToast();
@@ -67,8 +67,11 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
     mutationFn: async ({ id, status, afterImageUrl }: { id: string, status: string, afterImageUrl?: string }) => {
       console.log(`Updating complaint ${id} to status ${status} with afterImageUrl: ${afterImageUrl ? 'provided' : 'not provided'}`);
       
-      // Make sure the bucket exists before uploading
-      await ensureBucketExists();
+      // Just check if the bucket exists, we no longer try to create it
+      const bucketExists = await checkBucketExists();
+      if (!bucketExists) {
+        console.warn('Storage bucket does not exist. Image uploads may not work.');
+      }
       
       const updateData: any = { status };
       

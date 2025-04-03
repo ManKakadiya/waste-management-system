@@ -27,6 +27,9 @@ export const uploadImage = async (
     
     console.log(`Converting base64 to blob successful, size: ${blob.size} bytes`);
     
+    // Check if the bucket exists without attempting to create it
+    await checkBucketExists();
+    
     // Upload file to Supabase Storage
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)
@@ -55,10 +58,10 @@ export const uploadImage = async (
   }
 };
 
-// Helper function to check if the bucket exists & create it if needed
-export const ensureBucketExists = async (): Promise<boolean> => {
+// Helper function to check if the bucket exists
+export const checkBucketExists = async (): Promise<boolean> => {
   try {
-    // First check if the bucket already exists
+    // Check if the bucket exists
     const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
     
     if (bucketsError) {
@@ -67,36 +70,23 @@ export const ensureBucketExists = async (): Promise<boolean> => {
     }
     
     const bucketExists = buckets.some(bucket => bucket.name === BUCKET_NAME);
-    
-    if (bucketExists) {
-      console.log(`Bucket ${BUCKET_NAME} already exists`);
-      return true;
-    }
-    
-    // Create the bucket if it doesn't exist
-    console.log(`Creating bucket ${BUCKET_NAME}...`);
-    const { error: createError } = await supabase.storage.createBucket(BUCKET_NAME, {
-      public: true
-    });
-    
-    if (createError) {
-      console.error(`Error creating bucket ${BUCKET_NAME}:`, createError);
-      return false;
-    }
-    
-    console.log(`Successfully created bucket ${BUCKET_NAME}`);
-    return true;
+    console.log(`Bucket ${BUCKET_NAME} exists: ${bucketExists}`);
+    return bucketExists;
   } catch (error) {
-    console.error("Error ensuring bucket exists:", error);
+    console.error("Error checking if bucket exists:", error);
     return false;
   }
 };
 
-// Initialize bucket when app starts
+// Initialize storage when app starts
 export const initStorage = async (): Promise<void> => {
   try {
-    const exists = await ensureBucketExists();
-    console.log(`Storage initialized successfully: ${exists}`);
+    const exists = await checkBucketExists();
+    console.log(`Storage check completed: Bucket exists = ${exists}`);
+    
+    if (!exists) {
+      console.log("Bucket doesn't exist, but we won't try to create it from the client. Please ensure the bucket is created via SQL.");
+    }
   } catch (error) {
     console.error("Failed to initialize storage:", error);
   }
@@ -108,3 +98,7 @@ initStorage();
 // For backwards compatibility
 export const uploadImageToStorage = uploadImage;
 export const uploadImageToCloudinary = uploadImage;
+
+// We no longer try to create buckets from the client side
+// This function is kept for compatibility but will simply check if bucket exists
+export const ensureBucketExists = checkBucketExists;

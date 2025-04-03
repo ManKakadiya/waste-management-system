@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { validateImageFile, readImageFile } from "@/utils/imageUtils";
 import { useToast } from "@/hooks/use-toast";
-import { ensureBucketExists } from "@/integrations/supabase/storage";
+import { checkBucketExists } from "@/integrations/supabase/storage";
 
 interface ComplaintStatusDialogProps {
   complaint: any;
@@ -43,33 +43,37 @@ const ComplaintStatusDialog = ({
   const [bucketReady, setBucketReady] = useState(false);
   const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [storageError, setStorageError] = useState<string | null>(null);
   
   // Initialize storage bucket when dialog opens
   useEffect(() => {
     if (isOpen) {
-      const initBucket = async () => {
+      const checkStorage = async () => {
         try {
-          const exists = await ensureBucketExists();
+          setStorageError(null);
+          const exists = await checkBucketExists();
           setBucketReady(exists);
           if (!exists) {
+            setStorageError("Storage bucket not found. Please contact the administrator.");
             toast({
-              title: "Storage Error",
-              description: "Could not initialize storage bucket for image uploads.",
+              title: "Storage Setup Issue",
+              description: "The storage system is not properly configured. Photos may not upload correctly.",
               variant: "destructive",
             });
           }
         } catch (error) {
-          console.error("Error initializing bucket:", error);
+          console.error("Error checking bucket:", error);
           setBucketReady(false);
+          setStorageError("Failed to connect to storage. Please try again later.");
           toast({
-            title: "Storage Error",
-            description: "Failed to connect to storage service. Image uploads may not work.",
+            title: "Storage Connection Error",
+            description: "Could not connect to storage service. Image uploads may not work.",
             variant: "destructive",
           });
         }
       };
       
-      initBucket();
+      checkStorage();
     } else {
       // Clean up camera if dialog is closed
       if (cameraStream) {
@@ -216,14 +220,13 @@ const ComplaintStatusDialog = ({
       return;
     }
     
-    // Check if storage is ready for uploads
+    // We proceed even if bucket isn't ready - we'll let the upload function handle errors
     if (selectedStatus === "Resolved" && !bucketReady) {
       toast({
-        title: "Storage Not Ready",
-        description: "The storage system is not ready. Please try again later.",
-        variant: "destructive",
+        title: "Storage Warning",
+        description: "The storage system might not be ready, but we'll try to upload anyway.",
+        variant: "warning",
       });
-      return;
     }
     
     onStatusChange(selectedStatus, afterPhoto);
@@ -254,6 +257,7 @@ const ComplaintStatusDialog = ({
           setCameraStream(null);
         }
         setIsCapturingPhoto(false);
+        setStorageError(null);
       }
     }}>
       <DialogContent className="bg-white max-w-md">
@@ -265,6 +269,14 @@ const ComplaintStatusDialog = ({
         </DialogHeader>
         
         <div className="space-y-4 py-4">
+          {storageError && (
+            <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
+              <p className="font-semibold mb-1">Storage Configuration Issue</p>
+              <p>{storageError}</p>
+              <p className="mt-1 text-xs">You can still update status, but photo uploads may fail.</p>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-sm font-medium">Select New Status:</label>
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
@@ -389,8 +401,7 @@ const ComplaintStatusDialog = ({
             disabled={
               isPending || 
               !selectedStatus || 
-              (selectedStatus === "Resolved" && !afterPhoto) ||
-              (selectedStatus === "Resolved" && !bucketReady)
+              (selectedStatus === "Resolved" && !afterPhoto)
             }
             className="bg-primary hover:bg-primary-hover text-white">
             {isPending ? 
