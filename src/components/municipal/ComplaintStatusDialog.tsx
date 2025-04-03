@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Upload, Camera } from "lucide-react";
 import { 
@@ -40,35 +39,20 @@ const ComplaintStatusDialog = ({
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [afterPhoto, setAfterPhoto] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [bucketReady, setBucketReady] = useState(false);
+  const [bucketReady, setBucketReady] = useState(true);
   const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const [initializing, setInitializing] = useState(true);
+  const [initializing, setInitializing] = useState(false);
   
-  // Initialize storage check when dialog opens
   useEffect(() => {
     if (isOpen) {
       const checkStorage = async () => {
         try {
-          setInitializing(true);
           const exists = await checkBucketExists();
           setBucketReady(exists);
-          
-          if (!exists) {
-            toast({
-              title: "Storage Setup Issue",
-              description: "Storage bucket not found. Contact administrator.",
-              variant: "destructive",
-            });
-          }
         } catch (error) {
           console.error("Error checking bucket:", error);
           setBucketReady(false);
-          toast({
-            title: "Storage Connection Error",
-            description: "Could not connect to storage service. Try again later.",
-            variant: "destructive",
-          });
         } finally {
           setInitializing(false);
         }
@@ -76,7 +60,6 @@ const ComplaintStatusDialog = ({
       
       checkStorage();
     } else {
-      // Clean up camera if dialog is closed
       if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
         setCameraStream(null);
@@ -137,7 +120,6 @@ const ComplaintStatusDialog = ({
     }
   };
   
-  // Start camera capture
   const startCamera = async () => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -146,7 +128,6 @@ const ComplaintStatusDialog = ({
       setCameraStream(mediaStream);
       setIsCapturingPhoto(true);
       
-      // Connect the stream to video element
       const videoElement = document.getElementById('camera-preview') as HTMLVideoElement;
       if (videoElement) {
         videoElement.srcObject = mediaStream;
@@ -162,7 +143,6 @@ const ComplaintStatusDialog = ({
     }
   };
   
-  // Take photo from camera
   const takePhoto = () => {
     try {
       const videoElement = document.getElementById('camera-preview') as HTMLVideoElement;
@@ -176,7 +156,6 @@ const ComplaintStatusDialog = ({
         const dataUrl = canvas.toDataURL('image/jpeg');
         setAfterPhoto(dataUrl);
         
-        // Stop camera after taking photo
         if (cameraStream) {
           cameraStream.getTracks().forEach(track => track.stop());
           setCameraStream(null);
@@ -193,7 +172,6 @@ const ComplaintStatusDialog = ({
     }
   };
   
-  // Cancel camera capture
   const cancelCamera = () => {
     if (cameraStream) {
       cameraStream.getTracks().forEach(track => track.stop());
@@ -221,26 +199,15 @@ const ComplaintStatusDialog = ({
       return;
     }
     
-    // We proceed even if bucket isn't ready - warn the user
-    if (selectedStatus === "Resolved" && !bucketReady) {
-      toast({
-        title: "Storage Warning",
-        description: "Storage system might not be ready. Upload may fail.",
-        variant: "warning",
-      });
-    }
-    
     onStatusChange(selectedStatus, afterPhoto);
   };
   
-  // Reset form when dialog closes
   useEffect(() => {
     if (!isOpen) {
       setSelectedStatus("");
       setAfterPhoto(null);
       setDragActive(false);
     } else if (complaint) {
-      // Pre-select the current status when dialog opens
       setSelectedStatus(complaint.status || "");
     }
   }, [isOpen, complaint]);
@@ -252,7 +219,6 @@ const ComplaintStatusDialog = ({
         setSelectedStatus("");
         setAfterPhoto(null);
         setDragActive(false);
-        // Clean up camera if open
         if (cameraStream) {
           cameraStream.getTracks().forEach(track => track.stop());
           setCameraStream(null);
@@ -269,19 +235,6 @@ const ComplaintStatusDialog = ({
         </DialogHeader>
         
         <div className="space-y-4 py-4">
-          {initializing ? (
-            <div className="flex justify-center items-center p-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              <span className="ml-2">Checking storage system...</span>
-            </div>
-          ) : !bucketReady ? (
-            <div className="p-3 rounded-md bg-amber-50 border border-amber-200 text-amber-700 text-sm">
-              <p className="font-semibold mb-1">Storage Not Ready</p>
-              <p>The storage system isn't properly configured.</p>
-              <p className="mt-1 text-xs">You can update status, but photo uploads may fail.</p>
-            </div>
-          ) : null}
-
           <div className="space-y-2">
             <label className="text-sm font-medium">Select New Status:</label>
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
@@ -389,9 +342,7 @@ const ComplaintStatusDialog = ({
               )}
               
               <p className="text-xs text-gray-500 text-center mt-2">
-                {bucketReady ? 
-                  "Required to mark as resolved" : 
-                  "Initializing storage..."}
+                Required to mark as resolved
               </p>
             </div>
           )}
@@ -406,8 +357,7 @@ const ComplaintStatusDialog = ({
             disabled={
               isPending || 
               !selectedStatus || 
-              (selectedStatus === "Resolved" && !afterPhoto) ||
-              initializing
+              (selectedStatus === "Resolved" && !afterPhoto)
             }
             className="bg-primary hover:bg-primary-hover text-white">
             {isPending ? 
