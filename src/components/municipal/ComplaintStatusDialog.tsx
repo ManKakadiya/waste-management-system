@@ -43,33 +43,34 @@ const ComplaintStatusDialog = ({
   const [bucketReady, setBucketReady] = useState(false);
   const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const [storageError, setStorageError] = useState<string | null>(null);
+  const [initializing, setInitializing] = useState(true);
   
-  // Initialize storage bucket when dialog opens
+  // Initialize storage check when dialog opens
   useEffect(() => {
     if (isOpen) {
       const checkStorage = async () => {
         try {
-          setStorageError(null);
+          setInitializing(true);
           const exists = await checkBucketExists();
           setBucketReady(exists);
+          
           if (!exists) {
-            setStorageError("Storage bucket not found. Please contact the administrator.");
             toast({
               title: "Storage Setup Issue",
-              description: "The storage system is not properly configured. Photos may not upload correctly.",
+              description: "Storage bucket not found. Contact administrator.",
               variant: "destructive",
             });
           }
         } catch (error) {
           console.error("Error checking bucket:", error);
           setBucketReady(false);
-          setStorageError("Failed to connect to storage. Please try again later.");
           toast({
             title: "Storage Connection Error",
-            description: "Could not connect to storage service. Image uploads may not work.",
+            description: "Could not connect to storage service. Try again later.",
             variant: "destructive",
           });
+        } finally {
+          setInitializing(false);
         }
       };
       
@@ -220,11 +221,11 @@ const ComplaintStatusDialog = ({
       return;
     }
     
-    // We proceed even if bucket isn't ready - we'll let the upload function handle errors
+    // We proceed even if bucket isn't ready - warn the user
     if (selectedStatus === "Resolved" && !bucketReady) {
       toast({
         title: "Storage Warning",
-        description: "The storage system might not be ready, but we'll try to upload anyway.",
+        description: "Storage system might not be ready. Upload may fail.",
         variant: "warning",
       });
     }
@@ -257,7 +258,6 @@ const ComplaintStatusDialog = ({
           setCameraStream(null);
         }
         setIsCapturingPhoto(false);
-        setStorageError(null);
       }
     }}>
       <DialogContent className="bg-white max-w-md">
@@ -269,13 +269,18 @@ const ComplaintStatusDialog = ({
         </DialogHeader>
         
         <div className="space-y-4 py-4">
-          {storageError && (
-            <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
-              <p className="font-semibold mb-1">Storage Configuration Issue</p>
-              <p>{storageError}</p>
-              <p className="mt-1 text-xs">You can still update status, but photo uploads may fail.</p>
+          {initializing ? (
+            <div className="flex justify-center items-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <span className="ml-2">Checking storage system...</span>
             </div>
-          )}
+          ) : !bucketReady ? (
+            <div className="p-3 rounded-md bg-amber-50 border border-amber-200 text-amber-700 text-sm">
+              <p className="font-semibold mb-1">Storage Not Ready</p>
+              <p>The storage system isn't properly configured.</p>
+              <p className="mt-1 text-xs">You can update status, but photo uploads may fail.</p>
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Select New Status:</label>
@@ -401,7 +406,8 @@ const ComplaintStatusDialog = ({
             disabled={
               isPending || 
               !selectedStatus || 
-              (selectedStatus === "Resolved" && !afterPhoto)
+              (selectedStatus === "Resolved" && !afterPhoto) ||
+              initializing
             }
             className="bg-primary hover:bg-primary-hover text-white">
             {isPending ? 

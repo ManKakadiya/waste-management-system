@@ -27,9 +27,6 @@ export const uploadImage = async (
     
     console.log(`Converting base64 to blob successful, size: ${blob.size} bytes`);
     
-    // Check if the bucket exists without attempting to create it
-    await checkBucketExists();
-    
     // Upload file to Supabase Storage
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)
@@ -58,7 +55,7 @@ export const uploadImage = async (
   }
 };
 
-// Helper function to check if the bucket exists
+// Helper function to check if the bucket exists - now just for diagnostics
 export const checkBucketExists = async (): Promise<boolean> => {
   try {
     // Check if the bucket exists
@@ -78,27 +75,9 @@ export const checkBucketExists = async (): Promise<boolean> => {
   }
 };
 
-// Initialize storage when app starts
-export const initStorage = async (): Promise<void> => {
-  try {
-    const exists = await checkBucketExists();
-    console.log(`Storage check completed: Bucket exists = ${exists}`);
-    
-    if (!exists) {
-      console.log("Bucket doesn't exist, but we won't try to create it from the client. Please ensure the bucket is created via SQL.");
-    }
-  } catch (error) {
-    console.error("Failed to initialize storage:", error);
-  }
-};
-
-// Call initialization when module loads
-initStorage();
-
 // For backwards compatibility
 export const uploadImageToStorage = uploadImage;
 export const uploadImageToCloudinary = uploadImage;
 
-// We no longer try to create buckets from the client side
-// This function is kept for compatibility but will simply check if bucket exists
-export const ensureBucketExists = checkBucketExists;
+// Export bucket name for consistency across the app
+export const STORAGE_BUCKET_NAME = BUCKET_NAME;

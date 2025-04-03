@@ -1,10 +1,9 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { decode } from "@/utils/complaintUtils";
-import { uploadImage, checkBucketExists } from "@/integrations/supabase/storage";
+import { uploadImage } from "@/integrations/supabase/storage";
 
 export const useComplaints = (areaCode: string | undefined, statusFilter: string | null) => {
   const { toast } = useToast();
@@ -13,7 +12,6 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
   const [dialogOpen, setDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
 
-  // Fetch complaints based on area code
   const { 
     data: complaints = [], 
     isLoading, 
@@ -62,16 +60,9 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
     retryDelay: attempt => Math.min(attempt > 1 ? 2000 : 1000, 30 * 1000),
   });
 
-  // Update complaint status mutation
   const updateComplaintMutation = useMutation({
     mutationFn: async ({ id, status, afterImageUrl }: { id: string, status: string, afterImageUrl?: string }) => {
       console.log(`Updating complaint ${id} to status ${status} with afterImageUrl: ${afterImageUrl ? 'provided' : 'not provided'}`);
-      
-      // Just check if the bucket exists, we no longer try to create it
-      const bucketExists = await checkBucketExists();
-      if (!bucketExists) {
-        console.warn('Storage bucket does not exist. Image uploads may not work.');
-      }
       
       const updateData: any = { status };
       
@@ -137,11 +128,9 @@ export const useComplaints = (areaCode: string | undefined, statusFilter: string
     try {
       let afterImageUrl = undefined;
       
-      // Upload the after photo if it exists
       if (afterPhoto && status === "Resolved") {
         try {
           console.log("Uploading after photo...");
-          // Upload the after photo directly using the new function
           afterImageUrl = await uploadImage(afterPhoto, 'resolved');
           console.log("Successfully uploaded after photo:", afterImageUrl);
         } catch (uploadError) {
