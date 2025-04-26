@@ -33,6 +33,9 @@ export const useTrackComplaints = () => {
       return data || [];
     },
     enabled: !!user?.id,
+    staleTime: 0, // Ensure we always get fresh data
+    refetchOnWindowFocus: true, // Refresh when window focuses
+    refetchOnMount: true, // Refresh when component mounts
   });
 
   // Refresh complaints function
@@ -59,7 +62,7 @@ export const useTrackComplaints = () => {
     }
   };
 
-  // Delete complaint mutation - Updated to ensure permanent deletion
+  // Delete complaint mutation - Enhanced to ensure permanent deletion
   const deleteComplaintMutation = useMutation({
     mutationFn: async (complaintId: string) => {
       if (!user?.id) throw new Error("User not authenticated");
@@ -142,10 +145,13 @@ export const useTrackComplaints = () => {
         return oldData ? oldData.filter(complaint => complaint.id !== complaintId) : [];
       });
       
-      // Also invalidate the query to ensure it's removed from cache
+      // Invalidate and refetch to ensure cache is updated
       queryClient.invalidateQueries({
         queryKey: ['user-complaints', user?.id]
       });
+      
+      // Force refetch to ensure we have latest data
+      refetch();
       
       toast({
         title: "Complaint Deleted",
