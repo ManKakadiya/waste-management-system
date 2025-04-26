@@ -65,6 +65,7 @@ export const useTrackComplaints = () => {
       if (!user?.id) throw new Error("User not authenticated");
       
       setIsDeleting(true);
+      console.log("Starting deletion process for complaint:", complaintId);
       
       try {
         // First, get the complaint details to find associated images
@@ -75,36 +76,58 @@ export const useTrackComplaints = () => {
           .eq('user_id', user.id)
           .single();
         
-        if (fetchError) throw fetchError;
+        if (fetchError) {
+          console.error("Error fetching complaint:", fetchError);
+          throw fetchError;
+        }
+        
+        console.log("Fetched complaint for deletion:", complaint);
         
         // Delete any associated images from storage
         if (complaint.image_url) {
           const imagePath = getStoragePathFromUrl(complaint.image_url);
           if (imagePath) {
-            await supabase.storage
+            console.log("Deleting image from storage:", imagePath);
+            const { error: deleteImageError } = await supabase.storage
               .from('waste-reports')
               .remove([imagePath]);
+              
+            if (deleteImageError) {
+              console.error("Error deleting image:", deleteImageError);
+              // Continue with deletion even if image deletion fails
+            }
           }
         }
         
         if (complaint.after_image_url) {
           const afterImagePath = getStoragePathFromUrl(complaint.after_image_url);
           if (afterImagePath) {
-            await supabase.storage
+            console.log("Deleting after image from storage:", afterImagePath);
+            const { error: deleteAfterImageError } = await supabase.storage
               .from('waste-reports')
               .remove([afterImagePath]);
+              
+            if (deleteAfterImageError) {
+              console.error("Error deleting after image:", deleteAfterImageError);
+              // Continue with deletion even if image deletion fails
+            }
           }
         }
         
         // Delete the complaint record from the database
+        console.log("Deleting complaint record from database:", complaintId);
         const { error } = await supabase
           .from('complaints')
           .delete()
           .eq('id', complaintId)
           .eq('user_id', user.id);
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error deleting complaint from database:", error);
+          throw error;
+        }
         
+        console.log("Complaint successfully deleted:", complaintId);
         return complaintId;
       } catch (error) {
         console.error("Error in delete process:", error);
@@ -112,6 +135,8 @@ export const useTrackComplaints = () => {
       }
     },
     onSuccess: (complaintId) => {
+      console.log("Delete mutation successful for complaint:", complaintId);
+      
       // Update local state immediately
       queryClient.setQueryData(['user-complaints', user?.id], (oldData: any[]) => {
         return oldData ? oldData.filter(complaint => complaint.id !== complaintId) : [];
@@ -198,6 +223,7 @@ export const useTrackComplaints = () => {
   
   const handleConfirmDelete = () => {
     if (complaintToDelete) {
+      console.log("Confirming deletion of complaint:", complaintToDelete);
       deleteComplaintMutation.mutate(complaintToDelete);
     }
   };
