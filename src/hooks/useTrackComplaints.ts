@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -36,10 +37,14 @@ export const useTrackComplaints = () => {
     staleTime: 0, // Ensure we always get fresh data
     refetchOnWindowFocus: true, // Refresh when window focuses
     refetchOnMount: true, // Refresh when component mounts
-    onSuccess: (data) => {
-      setLocalComplaints(data); // Update our local state when query succeeds
-    }
   });
+
+  // Update localComplaints when complaints data changes
+  useEffect(() => {
+    if (complaints) {
+      setLocalComplaints(complaints);
+    }
+  }, [complaints]);
 
   // Refresh complaints function
   const handleRefresh = async () => {
