@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +15,7 @@ export const useTrackComplaints = () => {
   const [complaintToDelete, setComplaintToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [localComplaints, setLocalComplaints] = useState<any[]>([]);
 
   // Fetch user's complaints
   const { data: complaints = [], isLoading, refetch } = useQuery({
@@ -36,6 +36,9 @@ export const useTrackComplaints = () => {
     staleTime: 0, // Ensure we always get fresh data
     refetchOnWindowFocus: true, // Refresh when window focuses
     refetchOnMount: true, // Refresh when component mounts
+    onSuccess: (data) => {
+      setLocalComplaints(data); // Update our local state when query succeeds
+    }
   });
 
   // Refresh complaints function
@@ -141,6 +144,9 @@ export const useTrackComplaints = () => {
       console.log("Delete mutation successful for complaint:", complaintId);
       
       // Update local state immediately
+      setLocalComplaints(prev => prev.filter(complaint => complaint.id !== complaintId));
+      
+      // Update local state immediately
       queryClient.setQueryData(['user-complaints', user?.id], (oldData: any[]) => {
         return oldData ? oldData.filter(complaint => complaint.id !== complaintId) : [];
       });
@@ -206,7 +212,8 @@ export const useTrackComplaints = () => {
     }
   };
 
-  const filteredComplaints = complaints.filter((complaint) =>
+  // Use localComplaints for filtering instead of directly using complaints
+  const filteredComplaints = localComplaints.filter((complaint) =>
     complaint.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     complaint.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
     complaint.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -230,6 +237,11 @@ export const useTrackComplaints = () => {
   const handleConfirmDelete = () => {
     if (complaintToDelete) {
       console.log("Confirming deletion of complaint:", complaintToDelete);
+      
+      // Immediately remove from local state for instant UI update
+      setLocalComplaints(prev => prev.filter(complaint => complaint.id !== complaintToDelete));
+      
+      // Then trigger the actual deletion process
       deleteComplaintMutation.mutate(complaintToDelete);
     }
   };
@@ -243,7 +255,7 @@ export const useTrackComplaints = () => {
     user,
     searchQuery,
     setSearchQuery,
-    complaints: filteredComplaints,
+    complaints: filteredComplaints, // Return the filtered localComplaints
     isLoading,
     isRefreshing,
     selectedComplaint,

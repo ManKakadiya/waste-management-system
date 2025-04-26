@@ -1,7 +1,6 @@
 
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
 import DashboardLayout from "@/components/municipal/DashboardLayout";
 import TrackHeader from "@/components/track/TrackHeader";
 import EmptyState from "@/components/track/EmptyState";
