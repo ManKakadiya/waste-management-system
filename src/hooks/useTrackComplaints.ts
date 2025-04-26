@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,7 +59,7 @@ export const useTrackComplaints = () => {
     }
   };
 
-  // Delete complaint mutation - Updated for immediate UI update
+  // Delete complaint mutation - Updated to ensure permanent deletion
   const deleteComplaintMutation = useMutation({
     mutationFn: async (complaintId: string) => {
       if (!user?.id) throw new Error("User not authenticated");
@@ -95,7 +96,7 @@ export const useTrackComplaints = () => {
           }
         }
         
-        // Delete the complaint record
+        // Delete the complaint record from the database
         const { error } = await supabase
           .from('complaints')
           .delete()
@@ -111,10 +112,14 @@ export const useTrackComplaints = () => {
       }
     },
     onSuccess: (complaintId) => {
-      // CHANGE: Update local state immediately instead of just invalidating the query
-      // This gives the user immediate feedback that their complaint was deleted
+      // Update local state immediately
       queryClient.setQueryData(['user-complaints', user?.id], (oldData: any[]) => {
         return oldData ? oldData.filter(complaint => complaint.id !== complaintId) : [];
+      });
+      
+      // Also invalidate the query to ensure it's removed from cache
+      queryClient.invalidateQueries({
+        queryKey: ['user-complaints', user?.id]
       });
       
       toast({
